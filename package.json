@@ -1,9 +1,12 @@
 {
   "name": "elcsa-mavhola-parish",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "ELCSA Mavhola Parish communications, events, tickets and Youth League membership portal",
-  "scripts": {"start": "node server.js", "dev": "node --watch server.js"},
+  "description": "ELCSA Mavhola Parish CMS with Youth League membership proof uploads, content management and ticketing",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",

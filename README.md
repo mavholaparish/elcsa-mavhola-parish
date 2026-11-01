@@ -1,39 +1,53 @@
-# ELCSA Mavhola Parish website
+# ELCSA Mavhola Parish website CMS
 
-A responsive parish website starter with public announcements, events, a media gallery, Youth League membership applications, an administrator dashboard, decision emails and optional Stripe ticket checkout.
+A responsive parish website and starter content-management system for ELCSA Mavhola Parish. Includes parish announcements, events and ticket information, a photo/video gallery, Youth League membership applications with required proof-of-payment upload, and a private administrator dashboard.
 
-## Requirements
-- Node.js 20 or newer
-- An SMTP mailbox/provider for application and decision emails
-- A Stripe account (optional) for online card payments
+## What is included
+- Correct branding: the ELCSA Church logo appears in the parish home-page branding; the Youth League logo appears in the Youth League section.
+- Membership form requiring a PDF, JPG, PNG or WEBP proof of payment (maximum 10 MB).
+- Private proof-of-payment files are stored outside the public web folder and can only be viewed by a signed-in administrator.
+- Admin dashboard to view submitted applications and payment proofs, approve/reject applications, and send a decision email when email delivery is configured.
+- Admin tools to create, edit and delete announcements and events; upload, edit captions and delete gallery media; view ticket orders; and update parish contact details/tagline.
+- Existing SQLite databases are upgraded automatically with the new proof-of-payment fields.
 
 ## Run locally
-1. Extract this project.
-2. In this folder run `npm install`.
-3. Copy `.env.example` to `.env`.
-4. Set a strong `SESSION_SECRET`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD`.
-5. Run `npm start`.
-6. Open `http://localhost:3000` on your computer.
+1. Install Node.js 20 or newer.
+2. Extract this project and open a terminal in the project folder.
+3. Run `npm install`.
+4. Copy `.env.example` to `.env`.
+5. Set a unique, strong `SESSION_SECRET`, `ADMIN_EMAIL` and `ADMIN_PASSWORD` in `.env`.
+6. Run `npm start`.
+7. Open `http://localhost:3000`.
+8. Select **Admin** on the website and sign in with the configured administrator credentials.
 
-To test from a phone on the same Wi-Fi, find your computer's local IPv4 address (Windows: run `ipconfig`) and open `http://YOUR-COMPUTER-IP:3000` on the phone. Both devices must be on the same network and the computer firewall must allow port 3000.
+Do not share your `.env` file or administrator password. Do not commit `.env` or database/upload folders to GitHub.
 
-## Configure decision emails
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM` in `.env`. Use an email provider's SMTP credentials or app password. Do not put email passwords in frontend code. If SMTP is not configured, applications are still saved but notification emails are not sent.
+## Membership proof uploads
+Applicants must attach a PDF or image proof of payment (JPG, PNG or WEBP, maximum 10 MB). The proof is not served from the public `/uploads` folder. An authenticated administrator can open it from the Memberships tab. Applicant details and proof metadata are stored with the application record.
 
-## Configure online ticket payments
-Ticket checkout is optional until Stripe is configured. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `BASE_URL` in `.env`. In Stripe, create a webhook endpoint at `https://YOUR-DOMAIN/api/stripe/webhook` subscribed to `checkout.session.completed`. Use the webhook signing secret as `STRIPE_WEBHOOK_SECRET`. Set the currency and payment methods in your Stripe account as appropriate for South Africa. Test using Stripe test keys before enabling live payments. Never collect or store card numbers on this website.
+## Configure email notifications
+Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` in `.env`. If SMTP is not configured, applications are still saved, but applicant receipt and decision emails are not sent. Render free web services block common SMTP ports; use an email provider's HTTPS API integration or a hosting plan/network that supports your chosen provider before relying on email notifications.
 
-Events with a ticket price of R0 are displayed as free events. Events with a positive price display a Buy tickets button. The ticket order is marked Paid only after Stripe confirms payment through the webhook.
+## Optional online ticket payments
+Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `BASE_URL`. Configure a Stripe webhook at `https://YOUR-DOMAIN/api/stripe/webhook` subscribed to `checkout.session.completed`. Test with Stripe test credentials before enabling live payments. Never collect or store card numbers on this website.
 
-## Admin dashboard
-Visit the site and choose **Admin**. Sign in using the `ADMIN_EMAIL` and `ADMIN_PASSWORD` set in `.env`. From the dashboard you can review applications, approve/reject applicants, publish/delete announcements, create/delete events, upload/delete photos/videos, and view ticket orders.
+## CMS administrator dashboard
+- **Memberships:** review all submitted applications, inspect contact and congregation details, open payment proof, approve or reject, and add a message for the applicant.
+- **Announcements:** publish, pin, edit and delete notices.
+- **Events:** create, edit and delete events, dates, venues, descriptions, prices and capacity.
+- **Media:** upload images/videos, edit titles/descriptions and delete gallery items.
+- **Ticket orders:** view ticket orders and payment status.
+- **Website settings:** update parish email, phone, address and tagline.
 
-## Deploy and get a public URL
-This source code is not automatically hosted by ChatGPT, so it does not yet have a public internet URL or registered domain. Deploy the Node.js project to a hosting provider that supports persistent storage (SQLite database and uploaded media must persist), configure the environment variables there, and connect a domain you own. For production, use HTTPS, regular database/file backups, strong unique admin credentials, and a persistent disk or managed database. If your hosting provider uses ephemeral filesystems, replace SQLite/local uploads with managed persistent services before launch.
+## Important hosting and privacy warning
+This starter version stores its SQLite database, gallery uploads and private payment proofs on the server's local filesystem. Render's free web service uses an ephemeral filesystem and does not provide a persistent disk. **Do not use this version on Render Free to collect real membership applications, proof-of-payment documents, ticket orders or other important parish records.** Data and uploaded files can disappear when the service restarts, redeploys or spins down.
 
-## Important launch checklist
-- Add parish-approved contact details and any safeguarding/privacy wording.
-- Decide who is authorised to access the administrator account.
-- Publish a privacy notice explaining how membership information is used and retained.
-- Test application submission, SMTP delivery, approval/rejection emails, event creation, media uploads and ticket payment webhooks.
-- This is a starter system, not yet independently security-audited. Arrange a technical review before collecting real member information or accepting real payments.
+Before public production use, migrate the database to a durable managed PostgreSQL service and move public media and private payment proofs to durable object storage. Private payment proofs must remain in a private bucket and be served only to authenticated administrators (or via short-lived signed URLs). Configure email through an HTTPS email API, add backups, publish a privacy notice and have the system security-reviewed. Free database/storage tiers have quotas and may expire; confirm their retention rules before relying on them.
+
+## Before launch checklist
+- Confirm the parish-approved membership fee and payment instructions are displayed to applicants.
+- Add and verify parish contact details in Admin → Website settings.
+- Publish a privacy notice explaining how personal details and proof-of-payment documents are used, who can access them, and how long they are retained.
+- Restrict admin access to authorised parish officers; use unique credentials and rotate any password/secret that was ever shared or exposed.
+- Test application submission, proof viewing, approval/rejection, email delivery, content editing, media uploads and ticket payment webhooks.
+- This starter system has not undergone an independent security audit. Do not use it for real member data or payments until the persistent-storage and security work is complete.
