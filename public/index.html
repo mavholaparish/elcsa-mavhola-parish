@@ -19,7 +19,7 @@
 <div class="modal" id="applicationModal"><div class="modal-card"><button class="close" data-close="applicationModal">×</button><span class="eyebrow">ELCSA YOUTH LEAGUE</span><h2>Membership application</h2><p class="muted">Complete the form below. Your application will be reviewed by the parish.</p><form id="applicationForm" class="form-grid">
 <label>Full name *<input name="full_name" required maxlength="120"></label><label>Email address *<input type="email" name="email" required></label>
 <label>Phone number<input name="phone" type="tel"></label><label>Date of birth<input name="date_of_birth" type="date"></label>
-<label>Congregation<input name="congregation"></label><label>Residential address<input name="address"></label>
+<label>Occupation *<select name="occupation" required><option value="">Select your status</option><option value="Student">Student</option><option value="Employed">Employed</option><option value="Unemployed">Unemployed</option></select></label><label>Congregation<input name="congregation"></label><label class="wide">Residential address<input name="address"></label>
 <label class="wide">Why would you like to join the Youth League?<textarea name="motivation" rows="3"></textarea></label>
 <label class="wide">Proof of payment *<input name="proof_of_payment" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" required><small class="muted">Upload a PDF or image (JPG, PNG or WEBP), maximum 10 MB.</small></label>
 <div class="wide"><button class="btn navy" type="submit">Submit membership application</button></div><div id="applicationMessage" class="wide message" role="status"></div></form></div></div>

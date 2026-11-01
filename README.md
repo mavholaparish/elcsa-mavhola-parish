@@ -27,17 +27,18 @@ Do not share your `.env` file or administrator password. Do not commit `.env` or
 Applicants must attach a PDF or image proof of payment (JPG, PNG or WEBP, maximum 10 MB). The proof is not served from the public `/uploads` folder. An authenticated administrator can open it from the Memberships tab. Applicant details and proof metadata are stored with the application record.
 
 ## Configure email notifications
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` in `.env`. If SMTP is not configured, applications are still saved, but applicant receipt and decision emails are not sent. Render free web services block common SMTP ports; use an email provider's HTTPS API integration or a hosting plan/network that supports your chosen provider before relying on email notifications.
+For Render Free, use the Resend HTTPS API: set `RESEND_API_KEY` and `MAIL_FROM` in Render Environment, and verify the sender domain in your Resend account. You can alternatively configure SMTP using `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM` on a host that permits SMTP. If email is not configured, applications and ticket orders are still saved, but emails are not delivered. Test email delivery before launch.
 
-## Optional online ticket payments
-Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` and `BASE_URL`. Configure a Stripe webhook at `https://YOUR-DOMAIN/api/stripe/webhook` subscribed to `checkout.session.completed`. Test with Stripe test credentials before enabling live payments. Never collect or store card numbers on this website.
+## Ticket sales by EFT
+Ticket orders are recorded as Pending and the buyer receives an email with the order reference, event details, amount due and parish EFT instructions. The parish verifies the bank payment in the admin dashboard and changes the order to Paid; this triggers a paid ticket confirmation email. Enter the correct parish banking information under Admin → Website settings before selling tickets. Never mark an order Paid until the payment is verified.
 
 ## CMS administrator dashboard
-- **Memberships:** review all submitted applications, inspect contact and congregation details, open payment proof, approve or reject, and add a message for the applicant.
+- **Memberships:** search applicants by name or email, review occupation and other details, open payment proof, approve or reject, and add a message for the applicant. Applicants receive an email when their application is approved or rejected when email delivery is configured.
 - **Announcements:** publish, pin, edit and delete notices.
 - **Events:** create, edit and delete events, dates, venues, descriptions, prices and capacity.
 - **Media:** upload images/videos, edit titles/descriptions and delete gallery items.
-- **Ticket orders:** view ticket orders and payment status.
+- **Ticket orders:** view ticket orders and payment status. Buyers receive an order email with EFT instructions and a unique reference; after the parish marks an order Paid, the system emails a paid ticket confirmation to the buyer.
+- **EFT settings:** enter the parish-approved account holder, bank, account number, branch code and payment reference instructions in Admin → Website settings. These details are included in ticket order emails.
 - **Website settings:** update parish email, phone, address and tagline.
 
 ## Important hosting and privacy warning
@@ -62,3 +63,11 @@ Before public production use, migrate the database to a durable managed PostgreS
 
 ## Local preview
 Copy `.env.example` to `.env`, set a strong `ADMIN_PASSWORD` and `SESSION_SECRET`, then run `npm install` and `npm start`. Open http://localhost:3000.
+
+
+## Version 1.5 updates
+- Membership form includes required occupation dropdown: Student, Employed or Unemployed.
+- Admin Memberships tab includes live search by applicant name or email and displays occupation in application details. Existing database records are migrated automatically.
+- Ticket orders use EFT rather than Stripe Checkout. Order emails include the event, quantity, total and order reference.
+- Admin can configure EFT banking details under Website settings. When an order is marked Paid, the system emails the buyer a paid ticket confirmation.
+- Email sending supports Resend over HTTPS (recommended for Render Free) as well as SMTP fallback. A verified sender identity and configured email service are required for delivery.

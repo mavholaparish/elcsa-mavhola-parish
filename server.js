@@ -26,7 +26,7 @@ db.exec(`
 CREATE TABLE IF NOT EXISTS admins (id INTEGER PRIMARY KEY, email TEXT UNIQUE, password_hash TEXT);
 CREATE TABLE IF NOT EXISTS applications (
  id INTEGER PRIMARY KEY AUTOINCREMENT, full_name TEXT NOT NULL, email TEXT NOT NULL,
- phone TEXT, date_of_birth TEXT, congregation TEXT, address TEXT, motivation TEXT,
+ phone TEXT, date_of_birth TEXT, occupation TEXT, congregation TEXT, address TEXT, motivation TEXT,
  proof_filename TEXT, proof_original_name TEXT, proof_mime TEXT,
  status TEXT NOT NULL DEFAULT 'Pending', admin_note TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -54,10 +54,10 @@ CREATE TABLE IF NOT EXISTS site_settings (
 `);
 // Upgrade databases created by the earlier starter version without losing existing applications.
 const applicationColumns = db.prepare("PRAGMA table_info(applications)").all().map(c => c.name);
-for (const [column, type] of [["proof_filename", "TEXT"], ["proof_original_name", "TEXT"], ["proof_mime", "TEXT"]]) {
+for (const [column, type] of [["proof_filename", "TEXT"], ["proof_original_name", "TEXT"], ["proof_mime", "TEXT"], ["occupation", "TEXT"]]) {
   if (!applicationColumns.includes(column)) db.exec(`ALTER TABLE applications ADD COLUMN ${column} ${type}`);
 }
-for (const [key, value] of [["parish_email", "mavholaparish.yl@gmail.com"], ["parish_phone", "0679378130"], ["parish_address", "PO Box 222, Makonde, 0984"], ["tagline", "Growing Together in Christ"]]) {
+for (const [key, value] of [["parish_email", "mavholaparish.yl@gmail.com"], ["parish_phone", "0679378130"], ["parish_address", "PO Box 222, Makonde, 0984"], ["tagline", "Growing Together in Christ"], ["eft_account_name", ""], ["eft_bank_name", ""], ["eft_account_number", ""], ["eft_branch_code", ""], ["eft_reference_instructions", "Use your ticket order reference as the EFT payment reference."]]) {
   db.prepare("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CASE WHEN site_settings.value='' THEN excluded.value ELSE site_settings.value END").run(key, value);
 }
 const adminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
@@ -75,6 +75,16 @@ const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
   auth: process.env.SMTP_USER ? {user:process.env.SMTP_USER,pass:process.env.SMTP_PASS} : undefined
 }) : null;
 async function sendMail(to, subject, text) {
+  // Resend uses HTTPS and works on Render Free; the sender domain must be verified with Resend.
+  if (process.env.RESEND_API_KEY) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: process.env.MAIL_FROM || "ELCSA Mavhola Parish <onboarding@resend.dev>", to: [to], subject, text })
+    });
+    if (!response.ok) throw new Error(`Resend email error: ${response.status} ${await response.text()}`);
+    return true;
+  }
   if (!mailer) return false;
   await mailer.sendMail({from:process.env.MAIL_FROM || process.env.SMTP_USER,to,subject,text});
   return true;
@@ -134,11 +144,11 @@ app.post("/api/applications", (req,res,next)=>proofUpload.single("proof_of_payme
  if(err){ if(req.file)try{fs.unlinkSync(req.file.path)}catch{}; return res.status(400).json({error:err.code==="LIMIT_FILE_SIZE"?"Proof of payment must be 10 MB or smaller.":"Upload a PDF, JPG, PNG or WEBP proof of payment."}); }
  next();
 }), async(req,res)=>{
- const {full_name,email,phone,date_of_birth,congregation,address,motivation}=req.body||{};
- if(!full_name?.trim()||!email?.trim()||!email.includes("@")) { if(req.file)fs.unlinkSync(req.file.path); return res.status(400).json({error:"Please provide your full name and a valid email address."}); }
+ const {full_name,email,phone,date_of_birth,occupation,congregation,address,motivation}=req.body||{};
+ if(!full_name?.trim()||!email?.trim()||!email.includes("@")||!["Student","Employed","Unemployed"].includes(occupation)) { if(req.file)fs.unlinkSync(req.file.path); return res.status(400).json({error:"Please provide your full name, a valid email address and select your occupation."}); }
  if(!req.file) return res.status(400).json({error:"Please upload proof of payment before submitting your application."});
- const result=db.prepare(`INSERT INTO applications(full_name,email,phone,date_of_birth,congregation,address,motivation,proof_filename,proof_original_name,proof_mime)
- VALUES(?,?,?,?,?,?,?,?,?,?)`).run(full_name.trim(),email.trim(),phone||"",date_of_birth||"",congregation||"",address||"",motivation||"",req.file.filename,path.basename(req.file.originalname),req.file.mimetype);
+ const result=db.prepare(`INSERT INTO applications(full_name,email,phone,date_of_birth,occupation,congregation,address,motivation,proof_filename,proof_original_name,proof_mime)
+ VALUES(?,?,?,?,?,?,?,?,?,?,?)`).run(full_name.trim(),email.trim(),phone||"",date_of_birth||"",occupation,congregation||"",address||"",motivation||"",req.file.filename,path.basename(req.file.originalname),req.file.mimetype);
  try { await sendMail(email.trim(),"ELCSA Mavhola Parish – application received",
  `Dear ${full_name},\n\nYour Youth League membership application and proof of payment have been successfully submitted. The parish will review them and communicate the outcome.\n\nELCSA Mavhola Parish`); } catch(e){console.error("Applicant email failed:",e.message);}
  res.status(201).json({ok:true,id:result.lastInsertRowid,message:"Your application and proof of payment have been successfully submitted. The parish will review them and communicate the outcome."});
@@ -157,7 +167,7 @@ app.post("/api/admin/logout",(req,res)=>req.session.destroy(()=>res.json({ok:tru
 app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
 app.get("/api/admin/dashboard",requireAdmin,(req,res)=>{
  res.json({
-  applications:db.prepare("SELECT id,full_name,email,phone,date_of_birth,congregation,address,motivation,status,admin_note,created_at,CASE WHEN proof_filename IS NULL THEN 0 ELSE 1 END AS has_proof,proof_original_name FROM applications ORDER BY datetime(created_at) DESC").all(),
+  applications:db.prepare("SELECT id,full_name,email,phone,date_of_birth,occupation,congregation,address,motivation,status,admin_note,created_at,CASE WHEN proof_filename IS NULL THEN 0 ELSE 1 END AS has_proof,proof_original_name FROM applications ORDER BY datetime(created_at) DESC").all(),
   announcements:db.prepare("SELECT * FROM announcements ORDER BY datetime(created_at) DESC").all(),
   events:db.prepare("SELECT * FROM events ORDER BY datetime(event_date) ASC").all(),
   media:db.prepare("SELECT * FROM media ORDER BY datetime(created_at) DESC").all(),
@@ -226,39 +236,41 @@ app.delete("/api/admin/media/:id",requireAdmin,(req,res)=>{
  if(item){try{fs.unlinkSync(path.join(uploadsDir,item.filename));}catch{} db.prepare("DELETE FROM media WHERE id=?").run(req.params.id);}
  res.json({ok:true});
 });
-app.put("/api/admin/orders/:id",requireAdmin,(req,res)=>{
+app.put("/api/admin/orders/:id",requireAdmin,async(req,res)=>{
  const status=String(req.body?.status||"");
  if(!["Pending","Paid","Cancelled"].includes(status)) return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
- const result=db.prepare("UPDATE orders SET status=? WHERE id=?").run(status,req.params.id);
- if(!result.changes) return res.status(404).json({error:"Ticket order not found."});
- res.json({ok:true});
+ const order=db.prepare("SELECT orders.*,events.title AS event_title,events.event_date,events.venue FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=?").get(req.params.id);
+ if(!order) return res.status(404).json({error:"Ticket order not found."});
+ db.prepare("UPDATE orders SET status=? WHERE id=?").run(status,req.params.id);
+ let emailSent=false;
+ if(status==="Paid" && order.status!=="Paid") {
+  try { emailSent=await sendMail(order.buyer_email,`ELCSA Mavhola Parish – your ticket is confirmed (Order #${order.id})`,
+`Dear ${order.buyer_name},\n\nYour EFT payment has been verified and your ticket booking is confirmed.\n\nTICKET / ORDER CONFIRMATION\nOrder reference: MAV-${String(order.id).padStart(6,"0")}\nEvent: ${order.event_title}\nDate: ${order.event_date||"To be announced"}\nVenue: ${order.venue||"To be announced"}\nNumber of tickets: ${order.quantity}\nAmount paid: R ${(order.total_cents/100).toFixed(2)}\nStatus: PAID\n\nPlease keep this email and show it at the event entrance.\n\nELCSA Mavhola Parish`); } catch(e){console.error("Ticket confirmation email failed:",e.message);}
+ }
+ res.json({ok:true,emailSent});
 });
 app.put("/api/admin/settings",requireAdmin,(req,res)=>{
- const allowed=["parish_email","parish_phone","parish_address","tagline"];
+ const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions"];
  const update=db.prepare("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value");
  for(const key of allowed) update.run(key,String(req.body?.[key]||"").trim());
  res.json({ok:true});
 });
 app.post("/api/tickets/checkout",async(req,res)=>{
- if(!stripe)return res.status(503).json({error:"Online card payments are not configured yet. Please contact the parish about ticket sales."});
- const {event_id,buyer_name,buyer_email,quantity}=req.body;
+ const {event_id,buyer_name,buyer_email,quantity}=req.body||{};
  const event=db.prepare("SELECT * FROM events WHERE id=?").get(event_id);
  const qty=Math.max(1,Math.min(10,Number(quantity)||1));
- if(!event||!buyer_name||!buyer_email||event.ticket_price_cents<=0)return res.status(400).json({error:"Please check the event and buyer details."});
- const sold=db.prepare("SELECT COALESCE(SUM(quantity),0) n FROM orders WHERE event_id=? AND status='Paid'").get(event.id).n;
+ if(!event||!buyer_name?.trim()||!buyer_email?.includes("@")||event.ticket_price_cents<=0)return res.status(400).json({error:"Please check the event, your name and a valid email address."});
+ const sold=db.prepare("SELECT COALESCE(SUM(quantity),0) n FROM orders WHERE event_id=? AND status IN ('Paid','Pending')").get(event.id).n;
  if(event.ticket_capacity>0 && sold+qty>event.ticket_capacity)return res.status(400).json({error:"There are not enough tickets remaining."});
- const order=db.prepare("INSERT INTO orders(event_id,buyer_name,buyer_email,quantity,total_cents) VALUES(?,?,?,?,?)")
- .run(event.id,buyer_name,buyer_email,qty,event.ticket_price_cents*qty);
- try{
-  const checkout=await stripe.checkout.sessions.create({
-   mode:"payment",customer_email:buyer_email,
-   line_items:[{quantity:qty,price_data:{currency:"zar",unit_amount:event.ticket_price_cents,product_data:{name:event.title}}}],
-   success_url:`${process.env.BASE_URL}/?ticket=success`,cancel_url:`${process.env.BASE_URL}/?ticket=cancelled`,
-   metadata:{order_id:String(order.lastInsertRowid)}
-  });
-  db.prepare("UPDATE orders SET stripe_session_id=? WHERE id=?").run(checkout.id,order.lastInsertRowid);
-  res.json({url:checkout.url});
- }catch(e){console.error(e);res.status(500).json({error:"Could not start checkout. Please try again later."});}
+ const order=db.prepare("INSERT INTO orders(event_id,buyer_name,buyer_email,quantity,total_cents,status) VALUES(?,?,?,?,?,'Pending')")
+ .run(event.id,buyer_name.trim(),buyer_email.trim(),qty,event.ticket_price_cents*qty);
+ const settings=Object.fromEntries(db.prepare("SELECT key,value FROM site_settings").all().map(x=>[x.key,x.value]));
+ const reference=`MAV-${String(order.lastInsertRowid).padStart(6,"0")}`;
+ const eftDetails=[settings.eft_account_name&&`Account name: ${settings.eft_account_name}`,settings.eft_bank_name&&`Bank: ${settings.eft_bank_name}`,settings.eft_account_number&&`Account number: ${settings.eft_account_number}`,settings.eft_branch_code&&`Branch code: ${settings.eft_branch_code}`,settings.eft_reference_instructions||"Use the order reference below as your EFT payment reference."].filter(Boolean).join("\n");
+ let emailSent=false;
+ try { emailSent=await sendMail(buyer_email.trim(),`ELCSA Mavhola Parish – ticket order ${reference}`,
+`Dear ${buyer_name.trim()},\n\nThank you for booking tickets. Your order has been received and is awaiting EFT payment verification. This is not yet a paid ticket.\n\nORDER DETAILS\nOrder reference: ${reference}\nEvent: ${event.title}\nDate: ${event.event_date||"To be announced"}\nVenue: ${event.venue||"To be announced"}\nTickets: ${qty}\nTotal due: R ${((event.ticket_price_cents*qty)/100).toFixed(2)}\nPayment method: EFT\n\nEFT PAYMENT DETAILS\n${eftDetails||"Please contact the parish using the contact details on our website to obtain the EFT banking details."}\n\nAfter making payment, please send proof of payment to the parish. Your paid ticket confirmation will be emailed once the parish verifies your payment.\n\nELCSA Mavhola Parish`); } catch(e){console.error("Ticket order email failed:",e.message);}
+ res.status(201).json({ok:true,orderReference:reference,emailSent,message:`Your ticket order ${reference} has been recorded. Please pay by EFT and wait for the parish to verify your payment. ${emailSent?"Order details have been emailed to you.":"We could not send the email; please check your email address or contact the parish."}`});
 });
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.listen(PORT,()=>console.log(`ELCSA Mavhola Parish website running at http://localhost:${PORT}`));
