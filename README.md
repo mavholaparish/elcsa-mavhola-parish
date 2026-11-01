@@ -1,14 +1,15 @@
 # ELCSA Mavhola Parish website CMS
 
-A responsive parish website and starter content-management system for ELCSA Mavhola Parish. Includes parish announcements, events and ticket information, a photo/video gallery, Youth League membership applications with required proof-of-payment upload, and a private administrator dashboard.
+A responsive parish website and content-management system for ELCSA Mavhola Parish. Includes parish announcements, events and ticket information, a photo/video gallery, Youth League membership applications with required proof-of-payment upload, and a private administrator dashboard.
 
 ## What is included
-- Correct branding: the ELCSA Church logo appears in the parish home-page branding; the Youth League logo appears in the Youth League section.
+- Corrected logo layout: one ELCSA Church logo in the header, with no duplicate large hero logo; one Youth League logo in its own section, without an overlapping circular backing.
 - Membership form requiring a PDF, JPG, PNG or WEBP proof of payment (maximum 10 MB).
 - Private proof-of-payment files are stored outside the public web folder and can only be viewed by a signed-in administrator.
 - Admin dashboard to view submitted applications and payment proofs, approve/reject applications, and send a decision email when email delivery is configured.
 - Admin tools to create, edit and delete announcements and events; upload, edit captions and delete gallery media; view ticket orders; and update parish contact details/tagline.
 - Existing SQLite databases are upgraded automatically with the new proof-of-payment fields.
+- Render reverse-proxy trust and session-save handling are configured so secure administrator sessions can work behind Render HTTPS.
 
 ## Run locally
 1. Install Node.js 20 or newer.
@@ -51,3 +52,13 @@ Before public production use, migrate the database to a durable managed PostgreS
 - Restrict admin access to authorised parish officers; use unique credentials and rotate any password/secret that was ever shared or exposed.
 - Test application submission, proof viewing, approval/rejection, email delivery, content editing, media uploads and ticket payment webhooks.
 - This starter system has not undergone an independent security audit. Do not use it for real member data or payments until the persistent-storage and security work is complete.
+
+
+## Version 1.4 updates
+- Church logo used as a subtle background watermark in the homepage hero.
+- Parish contact details prefilled: mavholaparish.yl@gmail.com, 0679378130, PO Box 222, Makonde, 0984.
+- Ticket orders can be reviewed and their status updated in the admin dashboard.
+- Contact details remain editable under Admin → Website settings.
+
+## Local preview
+Copy `.env.example` to `.env`, set a strong `ADMIN_PASSWORD` and `SESSION_SECRET`, then run `npm install` and `npm start`. Open http://localhost:3000.

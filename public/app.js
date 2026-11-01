@@ -5,7 +5,15 @@ const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setT
 async function api(url,opts={}){const headers={...(opts.body instanceof FormData?{}:{"Content-Type":"application/json"}),...(opts.headers||{})};const r=await fetch(url,{...opts,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Something went wrong");return d}
 function open(id){$("#"+id).classList.add("open")}function close(id){$("#"+id).classList.remove("open")}
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>close(b.dataset.close));
-$("#adminOpen").onclick=()=>open("adminModal");$("#applyOpen").onclick=()=>open("applicationModal");$("#year").textContent=new Date().getFullYear();
+$("#adminOpen").onclick=async()=>{
+ open("adminModal");
+ try {
+  await api("/api/admin/me");
+  $("#adminLoginView").hidden=true; $("#adminDashboard").hidden=false;
+  await showAdmin("applications");
+ } catch { $("#adminLoginView").hidden=false; $("#adminDashboard").hidden=true; }
+};
+$("#applyOpen").onclick=()=>open("applicationModal");$("#year").textContent=new Date().getFullYear();
 
 $("#applicationForm").onsubmit=async e=>{
  e.preventDefault();const b=e.submitter;b.disabled=true;$("#applicationMessage").textContent="Submitting your application and proof of payment…";
@@ -19,18 +27,31 @@ async function loadPublic(){try{const d=await api("/api/public");
  $("#eventsList").innerHTML=d.events.length?d.events.map(ev=>`<article class="item-card"><div class="meta">${esc(ev.event_date||"Date to be announced")} · ${esc(ev.venue||"Venue to be announced")}</div><h3>${esc(ev.title)}</h3><p>${esc(ev.description)}</p><div class="price">${Number(ev.ticket_price_cents)>0?money(ev.ticket_price_cents):"Free event"}</div>${Number(ev.ticket_price_cents)>0?`<button class="btn navy" onclick="buyTicket(${ev.id},'${esc(ev.title).replace(/'/g,"\\'")}',${ev.ticket_price_cents})">Buy tickets</button>`:""}</article>`).join(""):'<p class="muted">No upcoming events have been published yet.</p>';
  $("#galleryList").innerHTML=d.media.length?d.media.map(m=>`<div class="gallery-item">${m.media_type?.startsWith("video/")?`<video controls src="/uploads/${encodeURIComponent(m.filename)}"></video>`:`<img loading="lazy" src="/uploads/${encodeURIComponent(m.filename)}" alt="${esc(m.title)}">`}<p><b>${esc(m.title)}</b><br>${esc(m.description)}</p></div>`).join(""):'<p class="muted">Parish photos and videos will appear here.</p>';
  if(d.settings?.tagline){const tag=document.querySelector(".intro-strip strong");if(tag)tag.textContent=d.settings.tagline;}
- if(d.settings?.parish_email){const link=document.querySelector(".contact .btn");link.href=`mailto:${encodeURIComponent(d.settings.parish_email)}`;}
- if(d.settings?.parish_phone){const p=document.querySelector(".contact .small");p.textContent=`Parish phone: ${d.settings.parish_phone}${d.settings.parish_address?" · "+d.settings.parish_address:""}`;}
+ const email=d.settings?.parish_email||"mavholaparish.yl@gmail.com";
+ const phone=d.settings?.parish_phone||"0679378130";
+ const address=d.settings?.parish_address||"PO Box 222, Makonde, 0984";
+ const emailLink=$("#contactEmail"); if(emailLink){emailLink.href=`mailto:${email}`;emailLink.querySelector("span").textContent=email;}
+ const phoneLink=$("#contactPhone"); if(phoneLink){phoneLink.href=`tel:${phone.replace(/[^+0-9]/g,"")}`;phoneLink.querySelector("span").textContent=phone;}
+ const addressText=$("#contactAddress"); if(addressText)addressText.textContent=address;
  }catch(e){console.error(e)}}
 window.buyTicket=async(id,title,price)=>{const name=prompt(`Buy ${title}\nYour full name:`);if(!name)return;const email=prompt("Your email address:");if(!email)return;const quantity=Number(prompt("Number of tickets (1–10):","1")||1);try{const d=await api("/api/tickets/checkout",{method:"POST",body:JSON.stringify({event_id:id,buyer_name:name,buyer_email:email,quantity})});location.href=d.url;}catch(e){alert(e.message)}};
 
-$("#loginForm").onsubmit=async e=>{e.preventDefault();try{await api("/api/admin/login",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});$("#adminLoginView").hidden=true;$("#adminDashboard").hidden=false;await showAdmin("applications");}catch(err){$("#loginMessage").textContent=err.message;}};
+$("#loginForm").onsubmit=async e=>{
+ e.preventDefault(); const button=e.submitter; button.disabled=true; $("#loginMessage").textContent="Signing in…";
+ try {
+  await api("/api/admin/login",{method:"POST",body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});
+  await showAdmin("applications");
+  $("#adminLoginView").hidden=true; $("#adminDashboard").hidden=false;
+ } catch(err) { $("#loginMessage").textContent=err.message; }
+ finally { button.disabled=false; }
+};
 $("#logoutBtn").onclick=async()=>{await api("/api/admin/logout",{method:"POST"});$("#adminDashboard").hidden=true;$("#adminLoginView").hidden=false;$("#loginForm").reset();};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showAdmin(b.dataset.tab));
 
 async function showAdmin(tab){
+ const c=$("#adminContent"); c.innerHTML='<p class="muted">Loading dashboard…</p>';
+ const d=await api("/api/admin/dashboard");
  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));
- const d=await api("/api/admin/dashboard"),c=$("#adminContent");
  if(tab==="applications"){
   c.innerHTML=`<h3>Youth League membership applications (${d.applications.length})</h3><p class="muted">New submissions appear here with their uploaded proof of payment. Select an applicant's details to review the full application.</p><div class="admin-list">${d.applications.length?d.applications.map(a=>`<article class="admin-record"><div class="record-top"><div><b>${esc(a.full_name)}</b><div class="meta">Submitted ${esc(a.created_at)} · Application #${a.id}</div></div><span class="status ${a.status.toLowerCase()}">${esc(a.status)}</span></div><p>${esc(a.email)} ${a.phone?" · "+esc(a.phone):""}</p><details><summary>View full application and payment proof</summary><dl class="app-details"><dt>Date of birth</dt><dd>${esc(a.date_of_birth||"Not supplied")}</dd><dt>Congregation</dt><dd>${esc(a.congregation||"Not supplied")}</dd><dt>Address</dt><dd>${esc(a.address||"Not supplied")}</dd><dt>Motivation</dt><dd>${esc(a.motivation||"Not supplied")}</dd><dt>Proof of payment</dt><dd>${a.has_proof?`<a href="/api/admin/applications/${a.id}/proof" target="_blank" rel="noopener">View uploaded proof (${esc(a.proof_original_name||"file")})</a>`:'<span class="muted">No proof attached</span>'}</dd><dt>Admin note</dt><dd>${esc(a.admin_note||"None")}</dd></dl></details><div class="decision-row"><input id="note${a.id}" placeholder="Optional message to applicant" value="${esc(a.admin_note||"")}"><button class="action" onclick="decision(${a.id},'Approved')" ${a.status==="Approved"?"disabled":""}>Approve</button><button class="action reject" onclick="decision(${a.id},'Rejected')" ${a.status==="Rejected"?"disabled":""}>Reject</button></div></article>`).join(""):'<p class="muted">No membership applications have been submitted yet.</p>'}</div>`;
  }
@@ -46,7 +67,7 @@ async function showAdmin(tab){
   c.innerHTML=`<form id="mediaCreate" class="admin-form" enctype="multipart/form-data"><h3>Upload parish media (image or video, max 20 MB)</h3><label>Title<input name="title"></label><label>File<input name="file" type="file" accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/webm" required></label><label class="wide">Description<input name="description"></label><button class="btn navy">Upload media</button></form><h3>Published media</h3>${d.media.map(a=>`<p class="manage-row"><span><b>${esc(a.title)}</b></span><span><button class="action" onclick="editMedia(${a.id})">Edit</button><button class="action reject" onclick="removeItem('media',${a.id})">Delete</button></span></p>`).join("")||'<p class="muted">No media uploaded yet.</p>'}`;
   $("#mediaCreate").onsubmit=async e=>{e.preventDefault();try{await api("/api/admin/media",{method:"POST",body:new FormData(e.target)});toast("Media uploaded");showAdmin(tab);loadPublic();}catch(err){toast(err.message)}};
  }
- if(tab==="orders") c.innerHTML=`<h3>Ticket orders</h3><table class="admin-table"><tr><th>Event</th><th>Buyer</th><th>Tickets</th><th>Total</th><th>Status</th></tr>${d.orders.map(o=>`<tr><td>${esc(o.event_title)}</td><td>${esc(o.buyer_name)}<br>${esc(o.buyer_email)}</td><td>${o.quantity}</td><td>${money(o.total_cents)}</td><td>${esc(o.status)}</td></tr>`).join("")}</table>`;
+ if(tab==="orders") c.innerHTML=`<h3>Ticket orders (${d.orders.length})</h3><p class="muted">Review orders and update their status when payment or cancellation has been confirmed.</p><table class="admin-table"><tr><th>Event</th><th>Buyer</th><th>Tickets</th><th>Total</th><th>Status</th><th>Update</th></tr>${d.orders.map(o=>`<tr><td>${esc(o.event_title)}</td><td>${esc(o.buyer_name)}<br>${esc(o.buyer_email)}</td><td>${o.quantity}</td><td>${money(o.total_cents)}</td><td>${esc(o.status)}</td><td><select id="orderStatus${o.id}"><option ${o.status==="Pending"?"selected":""}>Pending</option><option ${o.status==="Paid"?"selected":""}>Paid</option><option ${o.status==="Cancelled"?"selected":""}>Cancelled</option></select><button class="action" onclick="updateOrder(${o.id})">Save</button></td></tr>`).join("")}</table>`;
  if(tab==="settings"){
   const st=d.settings||{};
   c.innerHTML=`<form id="settingsForm" class="admin-form"><h3>Parish website information</h3><p class="wide muted">Update the public contact details shown on the website. You can change these fields without editing website code.</p><label>Parish email<input name="parish_email" type="email" value="${esc(st.parish_email||"")}"></label><label>Parish phone<input name="parish_phone" value="${esc(st.parish_phone||"")}"></label><label class="wide">Parish address<input name="parish_address" value="${esc(st.parish_address||"")}"></label><label class="wide">Tagline<input name="tagline" value="${esc(st.tagline||"")}"></label><button class="btn navy">Save website information</button></form>`;
@@ -59,3 +80,5 @@ window.editEvent=async id=>{try{const d=await api("/api/admin/dashboard"),a=d.ev
 window.editMedia=async id=>{try{const d=await api("/api/admin/dashboard"),a=d.media.find(x=>x.id===id);if(!a)return;const title=prompt("Media title:",a.title||"");if(title===null)return;const description=prompt("Media description:",a.description||"");if(description===null)return;await api(`/api/admin/media/${id}`,{method:"PUT",body:JSON.stringify({title,description})});toast("Media details updated");showAdmin("media");loadPublic();}catch(e){toast(e.message)}};
 window.removeItem=async(type,id)=>{if(!confirm("Delete this item?"))return;try{await api(`/api/admin/${type}/${id}`,{method:"DELETE"});toast("Deleted");const active=document.querySelector(".tab.active")?.dataset.tab;showAdmin(active);loadPublic();}catch(e){toast(e.message)}};
 loadPublic();
+
+window.updateOrder=async id=>{try{const status=$("#orderStatus"+id).value;await api(`/api/admin/orders/${id}`,{method:"PUT",body:JSON.stringify({status})});toast("Ticket order updated");showAdmin("orders");}catch(e){toast(e.message)}};

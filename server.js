@@ -13,6 +13,8 @@ const nodemailer = require("nodemailer");
 const Stripe = require("stripe");
 
 const app = express();
+// Render terminates HTTPS at its proxy. Trust the proxy so secure session cookies work.
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
 const db = new Database(process.env.DB_PATH || "parish.db");
 const uploadsDir = path.join(__dirname, "public/uploads");
@@ -55,12 +57,16 @@ const applicationColumns = db.prepare("PRAGMA table_info(applications)").all().m
 for (const [column, type] of [["proof_filename", "TEXT"], ["proof_original_name", "TEXT"], ["proof_mime", "TEXT"]]) {
   if (!applicationColumns.includes(column)) db.exec(`ALTER TABLE applications ADD COLUMN ${column} ${type}`);
 }
-for (const [key, value] of [["parish_email", ""], ["parish_phone", ""], ["parish_address", ""], ["tagline", "Growing Together in Christ"]]) {
-  db.prepare("INSERT OR IGNORE INTO site_settings(key,value) VALUES(?,?)").run(key, value);
+for (const [key, value] of [["parish_email", "mavholaparish.yl@gmail.com"], ["parish_phone", "0679378130"], ["parish_address", "PO Box 222, Makonde, 0984"], ["tagline", "Growing Together in Christ"]]) {
+  db.prepare("INSERT INTO site_settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=CASE WHEN site_settings.value='' THEN excluded.value ELSE site_settings.value END").run(key, value);
 }
 const adminEmail = (process.env.ADMIN_EMAIL || "").toLowerCase();
-if (adminEmail && process.env.ADMIN_PASSWORD && !db.prepare("SELECT id FROM admins WHERE email=?").get(adminEmail)) {
-  db.prepare("INSERT INTO admins(email,password_hash) VALUES(?,?)").run(adminEmail,bcrypt.hashSync(process.env.ADMIN_PASSWORD,12));
+if (adminEmail && process.env.ADMIN_PASSWORD) {
+  // Keep the administrator credentials in sync with Render environment variables.
+  // This also repairs a stale initial admin password after the owner rotates it.
+  db.prepare(`INSERT INTO admins(email,password_hash) VALUES(?,?)
+    ON CONFLICT(email) DO UPDATE SET password_hash=excluded.password_hash`)
+    .run(adminEmail,bcrypt.hashSync(process.env.ADMIN_PASSWORD,12));
 }
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
@@ -141,7 +147,11 @@ app.post("/api/admin/login", async(req,res)=>{
  const email=String(req.body.email||"").toLowerCase(), password=String(req.body.password||"");
  const admin=db.prepare("SELECT * FROM admins WHERE email=?").get(email);
  if(!admin || !bcrypt.compareSync(password,admin.password_hash)) return res.status(401).json({error:"Incorrect email or password."});
- req.session.admin={id:admin.id,email:admin.email}; res.json({ok:true,email:admin.email});
+ req.session.admin={id:admin.id,email:admin.email};
+ req.session.save(err=>{
+  if(err){console.error("Admin session save failed:",err.message);return res.status(500).json({error:"Could not start your admin session. Please try again."});}
+  res.json({ok:true,email:admin.email});
+ });
 });
 app.post("/api/admin/logout",(req,res)=>req.session.destroy(()=>res.json({ok:true})));
 app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
@@ -214,6 +224,13 @@ app.put("/api/admin/media/:id",requireAdmin,(req,res)=>{
 app.delete("/api/admin/media/:id",requireAdmin,(req,res)=>{
  const item=db.prepare("SELECT filename FROM media WHERE id=?").get(req.params.id);
  if(item){try{fs.unlinkSync(path.join(uploadsDir,item.filename));}catch{} db.prepare("DELETE FROM media WHERE id=?").run(req.params.id);}
+ res.json({ok:true});
+});
+app.put("/api/admin/orders/:id",requireAdmin,(req,res)=>{
+ const status=String(req.body?.status||"");
+ if(!["Pending","Paid","Cancelled"].includes(status)) return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
+ const result=db.prepare("UPDATE orders SET status=? WHERE id=?").run(status,req.params.id);
+ if(!result.changes) return res.status(404).json({error:"Ticket order not found."});
  res.json({ok:true});
 });
 app.put("/api/admin/settings",requireAdmin,(req,res)=>{
