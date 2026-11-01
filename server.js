@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS media (
  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, description TEXT, filename TEXT NOT NULL,
  media_type TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS documents (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, description TEXT,
+ filename TEXT NOT NULL, original_name TEXT NOT NULL, media_type TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS site_settings (
  key TEXT PRIMARY KEY, value TEXT NOT NULL DEFAULT ''
 );
@@ -121,6 +125,14 @@ const upload=multer({
   limits:{fileSize:20*1024*1024},
   fileFilter:(req,file,cb)=>cb(null,/^(image\/(jpeg|png|gif|webp)|video\/(mp4|webm))$/.test(file.mimetype))
 });
+const documentUpload = multer({
+ storage: multer.diskStorage({
+  destination: (req,file,cb)=>cb(null,uploadsDir),
+  filename: (req,file,cb)=>cb(null,`document-${Date.now()}-${Math.random().toString(36).slice(2)}${path.extname(file.originalname).toLowerCase()}`)
+ }),
+ limits:{fileSize:25*1024*1024,files:1},
+ fileFilter:(req,file,cb)=>cb(null,[".pdf",".doc",".docx",".xls",".xlsx",".ppt",".pptx",".txt"].includes(path.extname(file.originalname).toLowerCase()))
+});
 const proofUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, privateProofDir),
@@ -136,6 +148,7 @@ app.get("/api/public", (req,res)=>{
   announcements:db.prepare("SELECT * FROM announcements ORDER BY pinned DESC,datetime(created_at) DESC LIMIT 20").all(),
   events:db.prepare("SELECT * FROM events ORDER BY event_date ASC LIMIT 30").all(),
   media:db.prepare("SELECT * FROM media ORDER BY datetime(created_at) DESC LIMIT 30").all(),
+  documents:db.prepare("SELECT id,title,description,original_name,created_at FROM documents ORDER BY datetime(created_at) DESC LIMIT 100").all(),
   paymentsEnabled:!!stripe,
   settings:Object.fromEntries(db.prepare("SELECT key,value FROM site_settings").all().map(x=>[x.key,x.value]))
  });
@@ -171,6 +184,7 @@ app.get("/api/admin/dashboard",requireAdmin,(req,res)=>{
   announcements:db.prepare("SELECT * FROM announcements ORDER BY datetime(created_at) DESC").all(),
   events:db.prepare("SELECT * FROM events ORDER BY datetime(event_date) ASC").all(),
   media:db.prepare("SELECT * FROM media ORDER BY datetime(created_at) DESC").all(),
+  documents:db.prepare("SELECT * FROM documents ORDER BY datetime(created_at) DESC").all(),
   orders:db.prepare("SELECT orders.*,events.title AS event_title FROM orders JOIN events ON events.id=orders.event_id ORDER BY datetime(orders.created_at) DESC").all(),
   settings:Object.fromEntries(db.prepare("SELECT key,value FROM site_settings").all().map(x=>[x.key,x.value]))
  });
@@ -235,6 +249,31 @@ app.delete("/api/admin/media/:id",requireAdmin,(req,res)=>{
  const item=db.prepare("SELECT filename FROM media WHERE id=?").get(req.params.id);
  if(item){try{fs.unlinkSync(path.join(uploadsDir,item.filename));}catch{} db.prepare("DELETE FROM media WHERE id=?").run(req.params.id);}
  res.json({ok:true});
+});
+app.post("/api/admin/documents",requireAdmin,documentUpload.single("file"),(req,res)=>{
+ if(!req.file)return res.status(400).json({error:"Choose a supported document (maximum 25 MB)."});
+ const title=String(req.body.title||"").trim()||path.basename(req.file.originalname,path.extname(req.file.originalname));
+ const description=String(req.body.description||"").trim();
+ const r=db.prepare("INSERT INTO documents(title,description,filename,original_name,media_type) VALUES(?,?,?,?,?)").run(title,description,req.file.filename,path.basename(req.file.originalname),req.file.mimetype);
+ res.json({ok:true,id:r.lastInsertRowid});
+});
+app.put("/api/admin/documents/:id",requireAdmin,(req,res)=>{
+ const title=String(req.body.title||"").trim(),description=String(req.body.description||"").trim();
+ if(!title)return res.status(400).json({error:"Document title is required."});
+ const r=db.prepare("UPDATE documents SET title=?,description=? WHERE id=?").run(title,description,req.params.id);
+ if(!r.changes)return res.status(404).json({error:"Document not found."}); res.json({ok:true});
+});
+app.delete("/api/admin/documents/:id",requireAdmin,(req,res)=>{
+ const item=db.prepare("SELECT filename FROM documents WHERE id=?").get(req.params.id);
+ if(item){try{fs.unlinkSync(path.join(uploadsDir,path.basename(item.filename)));}catch{} db.prepare("DELETE FROM documents WHERE id=?").run(req.params.id);}
+ res.json({ok:true});
+});
+app.get("/documents/:id/download",(req,res)=>{
+ const item=db.prepare("SELECT filename,original_name FROM documents WHERE id=?").get(req.params.id);
+ if(!item)return res.status(404).send("Document not found.");
+ const file=path.join(uploadsDir,path.basename(item.filename));
+ if(!fs.existsSync(file))return res.status(404).send("Document file is unavailable.");
+ res.download(file,path.basename(item.original_name));
 });
 app.put("/api/admin/orders/:id",requireAdmin,async(req,res)=>{
  const status=String(req.body?.status||"");
