@@ -106,26 +106,81 @@ async function sendMail(to, subject, text, attachments = []) {
 }
 
 async function buildTicketPdf(ticket, order, event) {
- const pdf = await PDFDocument.create();
- const page = pdf.addPage([595.28,841.89]);
- const font=await pdf.embedFont(StandardFonts.Helvetica), bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const navy=rgb(0.035,0.16,0.38), gold=rgb(0.78,0.57,0.20), grey=rgb(0.32,0.36,0.42);
- page.drawRectangle({x:0,y:0,width:595.28,height:841.89,color:rgb(0.98,0.98,0.97)});
- page.drawRectangle({x:0,y:690,width:595.28,height:151,color:navy});
- const logoPath=path.join(__dirname,"public/youth-league-logo.png");
- if(fs.existsSync(logoPath)){const logo=await pdf.embedPng(fs.readFileSync(logoPath));const scale=Math.min(105/logo.width,105/logo.height);page.drawImage(logo,{x:42,y:714,width:logo.width*scale,height:logo.height*scale});}
- page.drawText("ELCSA MAVHOLA PARISH",{x:165,y:785,size:18,font:bold,color:rgb(1,1,1)});
- page.drawText("YOUTH LEAGUE EVENT TICKET",{x:165,y:754,size:12,font,color:rgb(0.96,0.86,0.62)});
- page.drawText("ADMISSION TICKET",{x:42,y:645,size:22,font:bold,color:navy});
- page.drawText("Ticket number: MAV-T"+String(ticket.id).padStart(6,"0"),{x:42,y:610,size:12,font:bold,color:gold});
- const rows=[["EVENT",event.title||"Parish event"],["DATE",event.event_date||"To be announced"],["VENUE",event.venue||"To be announced"],["TICKET HOLDER",order.buyer_name],["EMAIL",order.buyer_email],["ORDER REFERENCE","MAV-"+String(order.id).padStart(6,"0")],["TICKET",ticket.position+" of "+order.quantity],["PAYMENT STATUS","PAID"]];
- let y=555; for(const [label,value] of rows){page.drawText(label,{x:42,y,size:9,font:bold,color:grey});page.drawText(String(value).slice(0,76),{x:185,y,size:11,font,color:navy});page.drawLine({start:{x:42,y:y-12},end:{x:553,y:y-12},thickness:0.6,color:rgb(0.86,0.87,0.89)});y-=48;}
+ const pdf=await PDFDocument.create();
+ const page=pdf.addPage([842,595]);
+ const font=await pdf.embedFont(StandardFonts.Helvetica);
+ const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ const italic=await pdf.embedFont(StandardFonts.TimesRomanItalic);
+ const navy=rgb(0.035,0.13,0.31),blue=rgb(0.08,0.31,0.62),gold=rgb(0.96,0.70,0.08);
+ const cream=rgb(1,0.97,0.88),white=rgb(1,1,1),muted=rgb(0.29,0.35,0.45);
+ const W=842,H=595,stubX=650;
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:white});
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:rgb(0.985,0.99,1),borderColor:rgb(0.86,0.89,0.94),borderWidth:1});
+ page.drawRectangle({x:0,y:0,width:16,height:H,color:navy});
+ page.drawRectangle({x:16,y:0,width:8,height:H,color:gold});
+ page.drawRectangle({x:24,y:462,width:stubX-24,height:133,color:navy});
+ page.drawRectangle({x:stubX,y:0,width:W-stubX,height:H,color:navy});
+ page.drawRectangle({x:stubX,y:0,width:W-stubX,height:10,color:gold});
+ // Official ELCSA parish logo from the website's existing assets.
+ const churchLogoPath=path.join(__dirname,"public/elcsa-logo.png");
+ if(fs.existsSync(churchLogoPath)){
+  const logo=await pdf.embedPng(fs.readFileSync(churchLogoPath));
+  const scale=Math.min(102/logo.width,102/logo.height);
+  page.drawImage(logo,{x:43,y:474,width:logo.width*scale,height:logo.height*scale});
+ }
+ page.drawText("ELCSA MAVHOLA PARISH",{x:164,y:548,size:13,font:bold,color:white});
+ page.drawText("YOUTH LEAGUE",{x:164,y:507,size:31,font:bold,color:white});
+ page.drawText("FAITH  •  SERVICE  •  LEADERSHIP",{x:166,y:482,size:10,font:italic,color:gold});
+ // Youth League logo is also included as the event organiser's mark.
+ const youthLogoPath=path.join(__dirname,"public/youth-league-logo.png");
+ if(fs.existsSync(youthLogoPath)){
+  const logo=await pdf.embedPng(fs.readFileSync(youthLogoPath));
+  const scale=Math.min(68/logo.width,68/logo.height);
+  page.drawImage(logo,{x:stubX+62,y:500,width:logo.width*scale,height:logo.height*scale});
+ }
+ page.drawText("E-TICKET",{x:stubX+36,y:448,size:23,font:bold,color:white});
+ page.drawLine({start:{x:stubX+28,y:432},end:{x:W-28,y:432},thickness:3,color:gold});
+ page.drawText("INSTALLATION CONFERENCE",{x:48,y:430,size:18,font:bold,color:navy});
+ page.drawText("Building a Youth for Christ",{x:48,y:405,size:13,font:italic,color:blue});
+ // Event details
+ page.drawText("DATE",{x:48,y:365,size:9,font:bold,color:blue});
+ page.drawText(String(event.event_date||"To be announced").slice(0,38),{x:48,y:342,size:14,font:bold,color:navy});
+ page.drawLine({start:{x:330,y:330},end:{x:330,y:380},thickness:1,color:gold});
+ page.drawText("VENUE",{x:354,y:365,size:9,font:bold,color:blue});
+ page.drawText(String(event.venue||"To be announced").slice(0,42),{x:354,y:342,size:14,font:bold,color:navy});
+ // Buyer details panel
+ page.drawRectangle({x:43,y:82,width:565,height:218,color:cream,borderColor:rgb(0.95,0.84,0.57),borderWidth:1});
+ page.drawText("TICKET HOLDER",{x:64,y:269,size:9,font:bold,color:blue});
+ page.drawText(String(order.buyer_name).slice(0,48),{x:64,y:244,size:17,font:bold,color:navy});
+ page.drawText("TICKET NUMBER",{x:64,y:205,size:9,font:bold,color:blue});
+ const ticketNo="MYL-"+String(new Date().getFullYear())+"-"+String(ticket.id).padStart(6,"0");
+ page.drawText(ticketNo,{x:64,y:181,size:15,font:bold,color:navy});
+ page.drawText("ORDER REF.  MAV-"+String(order.id).padStart(6,"0"),{x:64,y:145,size:10,font,color:muted});
+ page.drawText("PAYMENT",{x:64,y:111,size:9,font:bold,color:blue});
+ page.drawRectangle({x:137,y:101,width:67,height:23,color:rgb(0.83,0.96,0.86),borderColor:rgb(0.25,0.65,0.38),borderWidth:0.6});
+ page.drawText("PAID",{x:153,y:108,size:10,font:bold,color:rgb(0.08,0.43,0.22)});
+ // Compact QR is contained in its own reserved area.
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
- const qrData=await QRCode.toDataURL(base+"/ticket/verify/"+ticket.token,{errorCorrectionLevel:"H",margin:1,width:260});
+ const qrData=await QRCode.toDataURL(base+"/ticket/verify/"+ticket.token,{errorCorrectionLevel:"H",margin:1,width:180});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- page.drawImage(qr,{x:197,y:105,width:200,height:200});
- page.drawText("Scan this QR code at the entrance to verify your ticket.",{x:85,y:82,size:10,font,color:grey});
- page.drawText("Please keep this ticket safe and present it on arrival.",{x:104,y:56,size:9,font,color:grey});
+ page.drawRectangle({x:490,y:116,width:94,height:112,color:white,borderColor:gold,borderWidth:1});
+ page.drawImage(qr,{x:503,y:137,width:68,height:68});
+ page.drawText("SCAN TO VERIFY",{x:500,y:124,size:7,font:bold,color:navy});
+ // Detachable stub
+ page.drawLine({start:{x:stubX,y:20},end:{x:stubX,y:575},thickness:1.5,color:rgb(0.72,0.79,0.89),dashArray:[5,5]});
+ page.drawText("TICKET NO.",{x:stubX+26,y:392,size:9,font:bold,color:gold});
+ page.drawText(ticketNo,{x:stubX+26,y:366,size:13,font:bold,color:white});
+ page.drawText("INSTALLATION",{x:stubX+26,y:323,size:11,font:bold,color:white});
+ page.drawText("CONFERENCE",{x:stubX+26,y:306,size:11,font:bold,color:white});
+ page.drawText("16–20 DECEMBER",{x:stubX+26,y:267,size:10,font:bold,color:gold});
+ page.drawText("TSHIFUDI CONGREGATION",{x:stubX+26,y:247,size:8,font,color:white});
+ page.drawLine({start:{x:stubX+25,y:224},end:{x:W-25,y:224},thickness:0.8,color:rgb(0.35,0.48,0.67)});
+ page.drawText("KEEP THIS TICKET SAFE",{x:stubX+26,y:194,size:9,font:bold,color:white});
+ page.drawText("Present your QR code at",{x:stubX+26,y:174,size:8,font,color:white});
+ page.drawText("the entrance for admission.",{x:stubX+26,y:160,size:8,font,color:white});
+ page.drawText("TOGETHER IN CHRIST",{x:stubX+26,y:77,size:9,font:bold,color:gold});
+ page.drawText("Towards a Better Tomorrow",{x:stubX+26,y:58,size:8,font:italic,color:white});
+ page.drawText("One ticket admits one person",{x:48,y:48,size:9,font:italic,color:muted});
  return Buffer.from(await pdf.save());
 }
 
@@ -224,6 +279,14 @@ app.get("/api/admin/dashboard",requireAdmin,(req,res)=>{
   orders:db.prepare("SELECT orders.*,events.title AS event_title FROM orders JOIN events ON events.id=orders.event_id ORDER BY datetime(orders.created_at) DESC").all(),
   settings:Object.fromEntries(db.prepare("SELECT key,value FROM site_settings").all().map(x=>[x.key,x.value]))
  });
+});
+app.get("/api/admin/applications/export.csv",requireAdmin,(req,res)=>{
+ const rows=db.prepare("SELECT full_name,email,phone,congregation,status,created_at FROM applications ORDER BY full_name COLLATE NOCASE").all();
+ const cell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+ const csv=["Full name,Email,Phone,Congregation,Status,Date applied",...rows.map(r=>[r.full_name,r.email,r.phone,r.congregation,r.status,r.created_at].map(cell).join(","))].join("\r\n");
+ res.setHeader("Content-Type","text/csv; charset=utf-8");
+ res.setHeader("Content-Disposition",'attachment; filename="mavhola-youth-league-membership-applications.csv"');
+ res.send("\uFEFF"+csv);
 });
 app.get("/api/admin/applications/:id/proof",requireAdmin,(req,res)=>{
  const item=db.prepare("SELECT proof_filename,proof_original_name,proof_mime FROM applications WHERE id=?").get(req.params.id);
