@@ -1,6 +1,6 @@
 {
   "name": "elcsa-mavhola-parish",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "ELCSA Mavhola Parish CMS with Youth League membership proof uploads, content management and ticketing",
   "scripts": {
@@ -18,7 +18,9 @@
     "helmet": "^8.0.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.10.0",
-    "stripe": "^17.7.0"
+    "stripe": "^17.7.0",
+    "pdf-lib": "^1.17.1",
+    "qrcode": "^1.5.4"
   },
   "engines": {
     "node": "22.x"
