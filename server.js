@@ -11,6 +11,9 @@ const path = require("path");
 const fs = require("fs");
 const nodemailer = require("nodemailer");
 const Stripe = require("stripe");
+const crypto = require("crypto");
+const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
+const QRCode = require("qrcode");
 
 const app = express();
 // Render terminates HTTPS at its proxy. Trust the proxy so secure session cookies work.
@@ -42,7 +45,13 @@ CREATE TABLE IF NOT EXISTS events (
 CREATE TABLE IF NOT EXISTS orders (
  id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, buyer_name TEXT NOT NULL,
  buyer_email TEXT NOT NULL, quantity INTEGER NOT NULL, total_cents INTEGER NOT NULL,
- status TEXT DEFAULT 'Pending', stripe_session_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP
+ status TEXT DEFAULT 'Pending', stripe_session_id TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ tickets_emailed_at TEXT
+);
+CREATE TABLE IF NOT EXISTS tickets (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, token TEXT NOT NULL UNIQUE,
+ redeemed_at TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ FOREIGN KEY(order_id) REFERENCES orders(id)
 );
 CREATE TABLE IF NOT EXISTS media (
  id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, description TEXT, filename TEXT NOT NULL,
@@ -57,6 +66,8 @@ CREATE TABLE IF NOT EXISTS site_settings (
 );
 `);
 // Upgrade databases created by the earlier starter version without losing existing applications.
+const orderColumns = db.prepare("PRAGMA table_info(orders)").all().map(c => c.name);
+if (!orderColumns.includes("tickets_emailed_at")) db.exec("ALTER TABLE orders ADD COLUMN tickets_emailed_at TEXT");
 const applicationColumns = db.prepare("PRAGMA table_info(applications)").all().map(c => c.name);
 for (const [column, type] of [["proof_filename", "TEXT"], ["proof_original_name", "TEXT"], ["proof_mime", "TEXT"], ["occupation", "TEXT"]]) {
   if (!applicationColumns.includes(column)) db.exec(`ALTER TABLE applications ADD COLUMN ${column} ${type}`);
@@ -78,21 +89,46 @@ const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
   secure: process.env.SMTP_SECURE === "true",
   auth: process.env.SMTP_USER ? {user:process.env.SMTP_USER,pass:process.env.SMTP_PASS} : undefined
 }) : null;
-async function sendMail(to, subject, text) {
+async function sendMail(to, subject, text, attachments = []) {
   // Resend uses HTTPS and works on Render Free; the sender domain must be verified with Resend.
   if (process.env.RESEND_API_KEY) {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: process.env.MAIL_FROM || "ELCSA Mavhola Parish <onboarding@resend.dev>", to: [to], subject, text })
+      body: JSON.stringify({ from: process.env.MAIL_FROM || "ELCSA Mavhola Parish <onboarding@resend.dev>", to: [to], subject, text, attachments: attachments.map(a => ({filename:a.filename, content:a.content.toString("base64")})) })
     });
     if (!response.ok) throw new Error(`Resend email error: ${response.status} ${await response.text()}`);
     return true;
   }
   if (!mailer) return false;
-  await mailer.sendMail({from:process.env.MAIL_FROM || process.env.SMTP_USER,to,subject,text});
+  await mailer.sendMail({from:process.env.MAIL_FROM || process.env.SMTP_USER,to,subject,text,attachments});
   return true;
 }
+
+async function buildTicketPdf(ticket, order, event) {
+ const pdf = await PDFDocument.create();
+ const page = pdf.addPage([595.28,841.89]);
+ const font=await pdf.embedFont(StandardFonts.Helvetica), bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ const navy=rgb(0.035,0.16,0.38), gold=rgb(0.78,0.57,0.20), grey=rgb(0.32,0.36,0.42);
+ page.drawRectangle({x:0,y:0,width:595.28,height:841.89,color:rgb(0.98,0.98,0.97)});
+ page.drawRectangle({x:0,y:690,width:595.28,height:151,color:navy});
+ const logoPath=path.join(__dirname,"public/youth-league-logo.png");
+ if(fs.existsSync(logoPath)){const logo=await pdf.embedPng(fs.readFileSync(logoPath));const scale=Math.min(105/logo.width,105/logo.height);page.drawImage(logo,{x:42,y:714,width:logo.width*scale,height:logo.height*scale});}
+ page.drawText("ELCSA MAVHOLA PARISH",{x:165,y:785,size:18,font:bold,color:rgb(1,1,1)});
+ page.drawText("YOUTH LEAGUE EVENT TICKET",{x:165,y:754,size:12,font,color:rgb(0.96,0.86,0.62)});
+ page.drawText("ADMISSION TICKET",{x:42,y:645,size:22,font:bold,color:navy});
+ page.drawText("Ticket number: MAV-T"+String(ticket.id).padStart(6,"0"),{x:42,y:610,size:12,font:bold,color:gold});
+ const rows=[["EVENT",event.title||"Parish event"],["DATE",event.event_date||"To be announced"],["VENUE",event.venue||"To be announced"],["TICKET HOLDER",order.buyer_name],["EMAIL",order.buyer_email],["ORDER REFERENCE","MAV-"+String(order.id).padStart(6,"0")],["TICKET",ticket.position+" of "+order.quantity],["PAYMENT STATUS","PAID"]];
+ let y=555; for(const [label,value] of rows){page.drawText(label,{x:42,y,size:9,font:bold,color:grey});page.drawText(String(value).slice(0,76),{x:185,y,size:11,font,color:navy});page.drawLine({start:{x:42,y:y-12},end:{x:553,y:y-12},thickness:0.6,color:rgb(0.86,0.87,0.89)});y-=48;}
+ const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
+ const qrData=await QRCode.toDataURL(base+"/ticket/verify/"+ticket.token,{errorCorrectionLevel:"H",margin:1,width:260});
+ const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
+ page.drawImage(qr,{x:197,y:105,width:200,height:200});
+ page.drawText("Scan this QR code at the entrance to verify your ticket.",{x:85,y:82,size:10,font,color:grey});
+ page.drawText("Please keep this ticket safe and present it on arrival.",{x:104,y:56,size:9,font,color:grey});
+ return Buffer.from(await pdf.save());
+}
+
 app.use(helmet({contentSecurityPolicy:false}));
 app.post("/api/stripe/webhook",express.raw({type:"application/json"}),(req,res)=>{
  if(!stripe||!process.env.STRIPE_WEBHOOK_SECRET)return res.status(400).send("Webhook not configured");
@@ -277,16 +313,33 @@ app.get("/documents/:id/download",(req,res)=>{
 });
 app.put("/api/admin/orders/:id",requireAdmin,async(req,res)=>{
  const status=String(req.body?.status||"");
- if(!["Pending","Paid","Cancelled"].includes(status)) return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
+ if(!["Pending","Paid","Cancelled"].includes(status))return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
  const order=db.prepare("SELECT orders.*,events.title AS event_title,events.event_date,events.venue FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=?").get(req.params.id);
- if(!order) return res.status(404).json({error:"Ticket order not found."});
+ if(!order)return res.status(404).json({error:"Ticket order not found."});
  db.prepare("UPDATE orders SET status=? WHERE id=?").run(status,req.params.id);
  let emailSent=false;
- if(status==="Paid" && order.status!=="Paid") {
-  try { emailSent=await sendMail(order.buyer_email,`ELCSA Mavhola Parish – your ticket is confirmed (Order #${order.id})`,
-`Dear ${order.buyer_name},\n\nYour EFT payment has been verified and your ticket booking is confirmed.\n\nTICKET / ORDER CONFIRMATION\nOrder reference: MAV-${String(order.id).padStart(6,"0")}\nEvent: ${order.event_title}\nDate: ${order.event_date||"To be announced"}\nVenue: ${order.venue||"To be announced"}\nNumber of tickets: ${order.quantity}\nAmount paid: R ${(order.total_cents/100).toFixed(2)}\nStatus: PAID\n\nPlease keep this email and show it at the event entrance.\n\nELCSA Mavhola Parish`); } catch(e){console.error("Ticket confirmation email failed:",e.message);}
+ if(status==="Paid"){
+  try{
+   let tickets=db.prepare("SELECT * FROM tickets WHERE order_id=? ORDER BY id").all(order.id);
+   if(!tickets.length){
+    const insert=db.prepare("INSERT INTO tickets(order_id,token) VALUES(?,?)");
+    db.transaction(()=>{for(let i=0;i<order.quantity;i++)insert.run(order.id,crypto.randomBytes(24).toString("hex"));})();
+    tickets=db.prepare("SELECT * FROM tickets WHERE order_id=? ORDER BY id").all(order.id);
+   }
+   const emailed=db.prepare("SELECT tickets_emailed_at FROM orders WHERE id=?").get(order.id).tickets_emailed_at;
+   if(!emailed){
+    const attachments=[];
+    for(let i=0;i<tickets.length;i++){
+     const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
+     attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
+    }
+    emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
+"Dear "+order.buyer_name+",\n\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\n\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\n\nELCSA Mavhola Parish Youth League",attachments);
+    if(emailSent)db.prepare("UPDATE orders SET tickets_emailed_at=CURRENT_TIMESTAMP WHERE id=?").run(order.id);
+   }else emailSent=true;
+  }catch(e){console.error("E-ticket generation/email failed:",e.message);}
  }
- res.json({ok:true,emailSent});
+ res.json({ok:true,emailSent,ticketCount:status==="Paid"?db.prepare("SELECT COUNT(*) n FROM tickets WHERE order_id=?").get(order.id).n:0});
 });
 app.put("/api/admin/settings",requireAdmin,(req,res)=>{
  const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions"];
@@ -310,6 +363,12 @@ app.post("/api/tickets/checkout",async(req,res)=>{
  try { emailSent=await sendMail(buyer_email.trim(),`ELCSA Mavhola Parish – ticket order ${reference}`,
 `Dear ${buyer_name.trim()},\n\nThank you for booking tickets. Your order has been received and is awaiting EFT payment verification. This is not yet a paid ticket.\n\nORDER DETAILS\nOrder reference: ${reference}\nEvent: ${event.title}\nDate: ${event.event_date||"To be announced"}\nVenue: ${event.venue||"To be announced"}\nTickets: ${qty}\nTotal due: R ${((event.ticket_price_cents*qty)/100).toFixed(2)}\nPayment method: EFT\n\nEFT PAYMENT DETAILS\n${eftDetails||"Please contact the parish using the contact details on our website to obtain the EFT banking details."}\n\nAfter making payment, please send proof of payment to the parish. Your paid ticket confirmation will be emailed once the parish verifies your payment.\n\nELCSA Mavhola Parish`); } catch(e){console.error("Ticket order email failed:",e.message);}
  res.status(201).json({ok:true,orderReference:reference,emailSent,message:`Your ticket order ${reference} has been recorded. Please pay by EFT and wait for the parish to verify your payment. ${emailSent?"Order details have been emailed to you.":"We could not send the email; please check your email address or contact the parish."}`});
+});
+app.get("/ticket/verify/:token",(req,res)=>{
+ const t=db.prepare("SELECT tickets.id,tickets.redeemed_at,orders.buyer_name,events.title AS event_title,events.event_date,events.venue FROM tickets JOIN orders ON orders.id=tickets.order_id JOIN events ON events.id=orders.event_id WHERE tickets.token=? AND orders.status='Paid'").get(req.params.token);
+ if(!t)return res.status(404).type("html").send("<!doctype html><html><body style='font-family:Arial;text-align:center;padding:40px'><h1>Ticket not found</h1><p>This QR code is not recognised as a paid ticket.</p></body></html>");
+ const holder=String(t.buyer_name).replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+ res.type("html").send("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Ticket verification</title></head><body style='font-family:Arial;background:#f4f6fa;padding:24px'><main style='max-width:520px;margin:30px auto;background:white;padding:28px;border-radius:14px;text-align:center'><img src='/youth-league-logo.png' alt='Youth League' style='max-width:130px;max-height:110px'><h1 style='color:#092b67'>VALID PAID TICKET</h1><p><b>"+t.event_title+"</b></p><p>"+(t.event_date||"Date to be announced")+" · "+(t.venue||"Venue to be announced")+"</p><p>Ticket holder: "+holder+"</p><p>Ticket number: MAV-T"+String(t.id).padStart(6,"0")+"</p><p>Please compare the ticket holder details with their ticket.</p></main></body></html>");
 });
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.listen(PORT,()=>console.log(`ELCSA Mavhola Parish website running at http://localhost:${PORT}`));
