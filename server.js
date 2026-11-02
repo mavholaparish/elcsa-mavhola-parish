@@ -170,10 +170,10 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawLine({start:{x:stubX,y:20},end:{x:stubX,y:575},thickness:1.5,color:rgb(0.72,0.79,0.89),dashArray:[5,5]});
  page.drawText("TICKET NO.",{x:stubX+26,y:392,size:9,font:bold,color:gold});
  page.drawText(ticketNo,{x:stubX+26,y:366,size:13,font:bold,color:white});
- page.drawText("INSTALLATION",{x:stubX+26,y:323,size:11,font:bold,color:white});
- page.drawText("CONFERENCE",{x:stubX+26,y:306,size:11,font:bold,color:white});
- page.drawText("16–20 DECEMBER",{x:stubX+26,y:267,size:10,font:bold,color:gold});
- page.drawText("TSHIFUDI CONGREGATION",{x:stubX+26,y:247,size:8,font,color:white});
+ page.drawText(String(event.title||"PARISH EVENT").toUpperCase().slice(0,22),{x:stubX+26,y:323,size:10,font:bold,color:white});
+ page.drawText("EVENT ADMISSION",{x:stubX+26,y:306,size:9,font,color:white});
+ page.drawText(String(event.event_date||"DATE TO BE ANNOUNCED").toUpperCase().slice(0,24),{x:stubX+26,y:267,size:9,font:bold,color:gold});
+ page.drawText(String(event.venue||"VENUE TO BE ANNOUNCED").toUpperCase().slice(0,25),{x:stubX+26,y:247,size:7,font,color:white});
  page.drawLine({start:{x:stubX+25,y:224},end:{x:W-25,y:224},thickness:0.8,color:rgb(0.35,0.48,0.67)});
  page.drawText("KEEP THIS TICKET SAFE",{x:stubX+26,y:194,size:9,font:bold,color:white});
  page.drawText("Present your QR code at",{x:stubX+26,y:174,size:8,font,color:white});
