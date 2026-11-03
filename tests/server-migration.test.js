@@ -94,3 +94,11 @@ test("ticket payment status changes are locked, atomic, and one-way", () => {
   assert.match(route, /INSERT INTO tickets/);
   assert.match(route, /db\.transaction\(async client=>/);
 });
+
+test("Stripe webhook does not mark orders Paid without ticket fulfillment", () => {
+  const start = server.indexOf('app.post("/api/stripe/webhook"');
+  const end = server.indexOf('app.use(express.json', start);
+  const route = server.slice(start, end);
+  assert.match(route, /manual-review-required/);
+  assert.doesNotMatch(route, /UPDATE orders SET status='Paid'/);
+});
