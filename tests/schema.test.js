@@ -8,5 +8,5 @@ for (const table of ["admins", "applications", "announcements", "events", "order
 }
 assert.match(schema, /proof_filename TEXT/);
 assert.match(schema, /tickets_emailed_at TIMESTAMPTZ/);
-assert.match(schema, /FOREIGN KEY|REFERENCES events\\(id\\)/);
+assert.match(schema, /REFERENCES events/);
 console.log("PostgreSQL schema smoke checks passed.");
