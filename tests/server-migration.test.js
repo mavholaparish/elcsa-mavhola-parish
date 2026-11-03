@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const server = fs.readFileSync(path.join(__dirname, "..", "server.neon.js"), "utf8");
+const app = fs.readFileSync(path.join(__dirname, "..", "public", "app.js"), "utf8");
 const database = fs.readFileSync(path.join(__dirname, "..", "database.js"), "utf8");
 const storage = fs.readFileSync(path.join(__dirname, "..", "storage.js"), "utf8");
 
