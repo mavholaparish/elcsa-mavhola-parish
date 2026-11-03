@@ -27,6 +27,7 @@ test("private proof files are served only through an admin-protected route", () 
   const route = server.slice(server.indexOf('app.get("/api/admin/applications/:id/proof"'));
   assert.match(route, /requireAdmin/);
   assert.match(server, /area:"payment-proofs"/);
+  assert.match(server, /key\.startsWith\("payment-proofs\/"\)/);
   assert.match(storage, /payment-proofs/);
   assert.doesNotMatch(storage, /public-read|publicRead|ACL:/i);
 });
