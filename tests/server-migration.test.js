@@ -28,7 +28,7 @@ test("private proof files are served only through an admin-protected route", () 
   const route = server.slice(server.indexOf('app.get("/api/admin/applications/:id/proof"'));
   assert.match(route, /requireAdmin/);
   assert.match(server, /area:"payment-proofs"/);
-  assert.match(server, /key\.startsWith\("payment-proofs\/"\)/);
+  assert.match(server, /!key\.startsWith\("gallery\/"\)/);
   assert.match(storage, /payment-proofs/);
   assert.doesNotMatch(storage, /public-read|publicRead|ACL:/i);
 });
@@ -61,7 +61,7 @@ test("private proof objects are not exposed by the public upload route", () => {
   const start = server.indexOf('app.get("/uploads/*"');
   const end = server.indexOf('app.use("/api",rateLimit', start);
   const route = server.slice(start, end);
-  assert.match(route, /payment-proofs\//);
+  assert.match(route, /!key\.startsWith\("gallery\/"\)/);\n  assert.match(route, /X-Content-Type-Options/);
   assert.match(route, /sendStatus\(404\)/);
 });
 
