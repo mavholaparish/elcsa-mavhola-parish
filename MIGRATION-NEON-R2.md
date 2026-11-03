@@ -59,3 +59,6 @@ Before release, complete and test:
 ## Free-tier note
 
 Neon and R2 have free usage allowances, not unlimited free service. Monitor storage, request and compute quotas. Keep an independent backup of database data and important uploaded files.
+
+
+Dependency note: the legacy SQLite session-store dependency is retained for compatibility with the original server entry point; the Neon preview uses PostgreSQL sessions. Security checks report the current dependency audit without modifying the dependency tree automatically.
