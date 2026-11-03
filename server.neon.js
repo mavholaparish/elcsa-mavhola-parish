@@ -264,7 +264,18 @@ app.put("/api/admin/events/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const {title,description,event_date,venue,ticket_price_cents,ticket_capacity}=req.body||{};if(!title?.trim())return res.status(400).json({error:"Event title is required."});
  const r=await db.query("UPDATE events SET title=$1,description=$2,event_date=$3,venue=$4,ticket_price_cents=$5,ticket_capacity=$6 WHERE id=$7",[title.trim(),description||"",event_date||"",venue||"",Math.max(0,Number(ticket_price_cents)||0),Math.max(0,Number(ticket_capacity)||0),req.params.id]);if(!r.rowCount)return res.status(404).json({error:"Event not found."});res.json({ok:true});
 }));
-app.delete("/api/admin/events/:id",requireAdmin,asyncRoute(async(req,res)=>{await db.query("DELETE FROM events WHERE id=$1",[req.params.id]);res.json({ok:true});}));
+app.delete("/api/admin/events/:id",requireAdmin,asyncRoute(async(req,res)=>{
+ try{
+  const result=await db.query("DELETE FROM events WHERE id=$1",[req.params.id]);
+  if(!result.rowCount)return res.status(404).json({error:"Event not found."});
+  res.json({ok:true});
+ }catch(error){
+  // Keep ticket order history intact; PostgreSQL correctly prevents deleting
+  // an event that already has orders linked to it.
+  if(error.code==="23503")return res.status(409).json({error:"This event has ticket orders linked to it and cannot be deleted. You can edit the event instead."});
+  throw error;
+ }
+}));
 app.post("/api/admin/media",requireAdmin,upload.single("file"),asyncRoute(async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"Choose an image or video (maximum 20 MB)."});
  const key=await storage.putObject({area:"gallery",originalName:req.file.originalname,buffer:req.file.buffer,contentType:req.file.mimetype});
