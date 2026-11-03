@@ -19,12 +19,14 @@ jobs:
       - run: npm install --ignore-scripts
       - name: Commit dependency lockfile
         run: |
-          if [ -f package-lock.json ] && ! git diff --quiet -- package-lock.json; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ -f package-lock.json ]; then
             git add package-lock.json
-            git commit -m 'Add reproducible dependency lockfile'
-            git push
+            if ! git diff --cached --quiet; then
+              git config user.name 'github-actions[bot]'
+              git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+              git commit -m 'Add reproducible dependency lockfile'
+              git push
+            fi
           fi
       - run: node --check server.neon.js
       - run: node --check database.js
