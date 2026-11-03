@@ -13,7 +13,7 @@ if (!process.env.DATABASE_URL) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
+  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: true },
   max: Number(process.env.PG_POOL_MAX || 5),
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
