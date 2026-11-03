@@ -96,6 +96,17 @@ test("ticket payment status changes are locked, atomic, and one-way", () => {
   assert.match(route, /db\.transaction\(async client=>/);
 });
 
+test("ticket check-in is admin-only and atomically redeems a paid ticket once", () => {
+  const start = server.indexOf('app.post("/api/admin/tickets/check-in"');
+  const end = server.indexOf('app.put("/api/admin/settings"', start);
+  const route = server.slice(start, end);
+  assert.match(route, /requireAdmin/);
+  assert.match(route, /UPDATE tickets SET redeemed_at=NOW\(\)/);
+  assert.match(route, /orders\.status='Paid'/);
+  assert.match(route, /tickets\.redeemed_at IS NULL/);
+  assert.match(route, /already been used/);
+  assert.match(app, /\/api\/admin\/tickets\/check-in/);
+});
 test("Stripe webhook does not mark orders Paid without ticket fulfillment", () => {
   const start = server.indexOf('app.post("/api/stripe/webhook"');
   const end = server.indexOf('app.use(express.json', start);
