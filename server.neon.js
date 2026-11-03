@@ -151,6 +151,19 @@ app.use(session({store:new PgSession({pool:db.pool,tableName:"user_sessions",cre
  secret:process.env.SESSION_SECRET,resave:false,saveUninitialized:false,
  cookie:{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:8*60*60*1000}}));
 app.use(express.static(path.join(__dirname,"public")));
+app.use("/api/admin",(req,res,next)=>{
+ if(["GET","HEAD","OPTIONS"].includes(req.method))return next();
+ const source=req.get("origin")||req.get("referer");
+ if(!source)return res.status(403).json({error:"Request origin could not be verified."});
+ try{
+  const parsed=new URL(source);
+  const expectedHost=String(req.get("host")||"").toLowerCase();
+  if(parsed.host.toLowerCase()!==expectedHost||parsed.protocol!==(req.secure?"https:":"http:")||(process.env.NODE_ENV==="production"&&!req.secure))
+   return res.status(403).json({error:"Cross-site request blocked."});
+ }catch{return res.status(403).json({error:"Request origin could not be verified."});}
+ next();
+});
+
 app.get("/uploads/*",asyncRoute(async(req,res)=>{
  const key=decodeURIComponent(req.params[0]||"");
  if(!key||key.includes("..")||key.startsWith("/")||key.startsWith("payment-proofs/"))return res.sendStatus(404);
