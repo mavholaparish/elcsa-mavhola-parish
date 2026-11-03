@@ -61,7 +61,8 @@ test("private proof objects are not exposed by the public upload route", () => {
   const start = server.indexOf('app.get("/uploads/*"');
   const end = server.indexOf('app.use("/api",rateLimit', start);
   const route = server.slice(start, end);
-  assert.match(route, /!key\.startsWith\("gallery\/"\)/);\n  assert.match(route, /X-Content-Type-Options/);
+  assert.match(route, /!key\.startsWith\("gallery\/"\)/);
+  assert.match(route, /X-Content-Type-Options/);
   assert.match(route, /sendStatus\(404\)/);
 });
 
