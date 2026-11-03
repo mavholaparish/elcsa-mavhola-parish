@@ -115,3 +115,26 @@ test("Stripe webhook does not mark orders Paid without ticket fulfillment", () =
   assert.match(route, /manual-review-required/);
   assert.doesNotMatch(route, /UPDATE orders SET status='Paid'/);
 });
+
+test("ticket verification page distinguishes redeemed tickets without exposing holder names", () => {
+  const start = server.indexOf('app.get("/ticket/verify/:token"');
+  const end = server.indexOf('app.get("/healthz"', start);
+  const route = server.slice(start, end);
+  assert.match(route, /tickets\.redeemed_at/);
+  assert.match(route, /TICKET ALREADY USED/);
+  assert.match(route, /VALID PAID TICKET/);
+  assert.doesNotMatch(route, /buyer_name/);
+});
+
+test("ticket email delivery uses an atomic expiring claim to prevent duplicate sends", () => {
+  const start = server.indexOf('app.put("/api/admin/orders/:id"');
+  const end = server.indexOf('app.post("/api/admin/tickets/check-in"', start);
+  const route = server.slice(start, end);
+  assert.match(route, /tickets_email_claimed_at=NOW\(\)/);
+  assert.match(route, /tickets_email_claimed_at < NOW\(\)-INTERVAL '10 minutes'/);
+  assert.match(route, /RETURNING id/);
+  assert.match(route, /tickets_emailed_at=NOW\(\),tickets_email_claimed_at=NULL/);
+  assert.match(route, /tickets_email_claimed_at=NULL/);
+  const schema = fs.readFileSync(path.join(__dirname, "..", "database", "schema.sql"), "utf8");
+  assert.match(schema, /ADD COLUMN IF NOT EXISTS tickets_email_claimed_at/);
+});
