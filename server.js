@@ -19,9 +19,16 @@ const app = express();
 // Render terminates HTTPS at its proxy. Trust the proxy so secure session cookies work.
 app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3000;
-const db = new Database(process.env.DB_PATH || "parish.db");
-const uploadsDir = path.join(__dirname, "public/uploads");
-const privateProofDir = path.join(__dirname, "private_uploads/payment-proofs");
+// Set STORAGE_DIR to a persistent mounted directory on the hosting provider
+// (for Render, for example, /var/data). Keep the existing local paths in
+// development when STORAGE_DIR is not configured.
+const storageDir = process.env.STORAGE_DIR ? path.resolve(process.env.STORAGE_DIR) : __dirname;
+const dbPath = process.env.DB_PATH || (process.env.STORAGE_DIR ? path.join(storageDir, "parish.db") : "parish.db");
+const db = new Database(dbPath);
+const uploadsDir = process.env.STORAGE_DIR ? path.join(storageDir, "uploads") : path.join(__dirname, "public/uploads");
+const privateProofDir = process.env.STORAGE_DIR ? path.join(storageDir, "private_uploads/payment-proofs") : path.join(__dirname, "private_uploads/payment-proofs");
+const sessionsDir = process.env.STORAGE_DIR ? storageDir : __dirname;
+fs.mkdirSync(storageDir, { recursive: true });
 fs.mkdirSync(uploadsDir, { recursive: true });
 fs.mkdirSync(privateProofDir, { recursive: true });
 db.pragma("journal_mode = WAL");
@@ -199,7 +206,7 @@ app.post("/api/stripe/webhook",express.raw({type:"application/json"}),(req,res)=
 app.use(express.json({limit:"1mb"}));
 app.use(express.urlencoded({extended:true}));
 app.use(session({
-  store:new SQLiteStore({db:"sessions.db",dir:"."}),
+  store:new SQLiteStore({db:"sessions.db",dir:sessionsDir}),
   secret:process.env.SESSION_SECRET || "development-only-change-this-secret",
   resave:false,saveUninitialized:false,
   cookie:{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production",maxAge:8*60*60*1000}
