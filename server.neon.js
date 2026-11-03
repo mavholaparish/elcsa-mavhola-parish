@@ -336,24 +336,29 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const result=await db.transaction(async client=>{
   const order=(await client.query("SELECT orders.*,events.title AS event_title,events.event_date,events.venue FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=$1 FOR UPDATE OF orders",[req.params.id])).rows[0];
   if(!order)return {notFound:true};
+  let tickets=[];
+  if(status==="Paid"){
+   tickets=(await client.query("SELECT * FROM tickets WHERE order_id=$1 ORDER BY id",[order.id])).rows;
+   // Never silently fulfil an order with a partial ticket set. Check before
+   // changing status so the transaction can safely leave the order Pending.
+   if(tickets.length!==0&&tickets.length!==Number(order.quantity))
+    return {ticketMismatch:true,expected:Number(order.quantity),actual:tickets.length};
+  }
   if(order.status!==status){
    if(order.status!=="Pending")return {conflict:true,currentStatus:order.status};
    await client.query("UPDATE orders SET status=$1 WHERE id=$2",[status,order.id]);
    order.status=status;
   }
-  let tickets=[];
-  if(status==="Paid"){
-   tickets=(await client.query("SELECT * FROM tickets WHERE order_id=$1 ORDER BY id",[order.id])).rows;
-   if(!tickets.length){
-    for(let i=0;i<order.quantity;i++){
-     const ticket=await client.query("INSERT INTO tickets(order_id,token) VALUES($1,$2) RETURNING *",[order.id,crypto.randomBytes(24).toString("hex")]);
-     tickets.push(ticket.rows[0]);
-    }
+  if(status==="Paid"&&!tickets.length){
+   for(let i=0;i<order.quantity;i++){
+    const ticket=await client.query("INSERT INTO tickets(order_id,token) VALUES($1,$2) RETURNING *",[order.id,crypto.randomBytes(24).toString("hex")]);
+    tickets.push(ticket.rows[0]);
    }
   }
   return {order,tickets};
  });
  if(result.notFound)return res.status(404).json({error:"Ticket order not found."});
+ if(result.ticketMismatch)return res.status(409).json({error:"Ticket records do not match the order quantity. The order status was not changed; please contact technical support."});
  if(result.conflict)return res.status(409).json({error:"This order is already "+result.currentStatus+". Only Pending orders can be changed."});
  const {order,tickets}=result;let emailSent=false;
  if(status==="Paid"){
