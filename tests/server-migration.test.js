@@ -39,3 +39,28 @@ test("Neon and R2 fail closed when configuration is missing", () => {
   assert.match(storage, /R2_SECRET_ACCESS_KEY/);
   assert.match(server, /SESSION_SECRET/);
 });
+
+test("event deletion preserves linked ticket-order history", () => {
+  const start = server.indexOf('app.delete("/api/admin/events/:id"');
+  const end = server.indexOf('app.post("/api/admin/media"', start);
+  const route = server.slice(start, end);
+  assert.match(route, /error\.code===\"23503\"/);
+  assert.match(route, /res\.status\(409\)/);
+  assert.match(route, /cannot be deleted/i);
+});
+
+test("ticket checkout locks the event row before checking capacity", () => {
+  const start = server.indexOf('app.post("/api/tickets/checkout"');
+  const end = server.indexOf('app.get("/ticket/verify/', start);
+  const route = server.slice(start, end);
+  assert.ok(route.indexOf("FOR UPDATE") < route.indexOf("SUM(quantity)"));
+  assert.match(route, /status IN \('Paid','Pending'\)/);
+});
+
+test("private proof objects are not exposed by the public upload route", () => {
+  const start = server.indexOf('app.get("/uploads/*"');
+  const end = server.indexOf('app.use("/api",rateLimit', start);
+  const route = server.slice(start, end);
+  assert.match(route, /payment-proofs\//);
+  assert.match(route, /sendStatus\(404\)/);
+});
