@@ -82,3 +82,15 @@ test("public ticket booking buttons do not embed event titles in inline JavaScri
   assert.match(app, /data-buy-event/);
   assert.doesNotMatch(app, /onclick="buyTicket/);
 });
+
+test("ticket payment status changes are locked, atomic, and one-way", () => {
+  const start = server.indexOf('app.put("/api/admin/orders/:id"');
+  const end = server.indexOf('app.put("/api/admin/settings"', start);
+  const route = server.slice(start, end);
+  assert.match(route, /FOR UPDATE OF orders/);
+  assert.match(route, /order\.status!==status/);
+  assert.match(route, /order\.status!=="Pending"/);
+  assert.match(route, /res\.status\(409\)/);
+  assert.match(route, /INSERT INTO tickets/);
+  assert.match(route, /db\.transaction\(async client=>/);
+});
