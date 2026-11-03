@@ -22,7 +22,9 @@
     "pg": "^8.13.1",
     "connect-pg-simple": "^10.0.0",
     "@aws-sdk/client-s3": "^3.750.0",
-    "@aws-sdk/s3-request-presigner": "^3.750.0"
+    "@aws-sdk/s3-request-presigner": "^3.750.0",
+    "better-sqlite3": "^11.8.1",
+    "connect-sqlite3": "^0.9.15"
   },
   "engines": {
     "node": "22.x"
