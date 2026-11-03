@@ -17,6 +17,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install --ignore-scripts
+      - name: Apply compatible dependency security updates
+        run: npm audit fix --ignore-scripts
       - name: Commit dependency lockfile
         run: |
           if [ -f package-lock.json ]; then
@@ -33,6 +35,8 @@ jobs:
       - run: node --check storage.js
       - run: node --check upload-validation.js
       - run: npm test
+      - name: Enforce dependency audit
+        run: npm audit --audit-level=high
       - name: Report dependency vulnerabilities
         run: |
           npm audit --json > npm-audit.json || true
