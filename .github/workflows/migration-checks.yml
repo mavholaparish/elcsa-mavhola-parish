@@ -1,0 +1,21 @@
+name: Migration checks
+on:
+  push:
+    branches:
+      - storage-migration/neon-r2
+  pull_request:
+    branches:
+      - main
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --ignore-scripts
+      - run: node --check server.neon.js
+      - run: node --check database.js
+      - run: node --check storage.js
+      - run: npm test
