@@ -247,7 +247,7 @@ app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
 }));
 app.get("/api/admin/applications/export.csv",requireAdmin,asyncRoute(async(req,res)=>{
  const rows=(await db.query("SELECT full_name,email,phone,congregation,status,created_at FROM applications ORDER BY LOWER(full_name)")).rows;
- const cell=v=>{let value=String(v??"");if(/^[\\s\\u0000-\\u001f]*[=+\\-@]/.test(value))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';};
+ const cell=v=>{let value=String(v??"");if(/^[\s\u0000-\u001f]*[=+\-@]/.test(value))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';};
  const csv=["Full name,Email,Phone,Congregation,Status,Date applied",...rows.map(r=>[r.full_name,r.email,r.phone,r.congregation,r.status,r.created_at].map(cell).join(","))].join("\r\n");
  res.setHeader("Content-Type","text/csv; charset=utf-8");res.setHeader("Content-Disposition",'attachment; filename="mavhola-youth-league-membership-applications.csv"');res.send("\uFEFF"+csv);
 }));
