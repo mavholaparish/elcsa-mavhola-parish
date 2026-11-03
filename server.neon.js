@@ -138,9 +138,11 @@ app.post("/api/stripe/webhook",express.raw({type:"application/json"}),asyncRoute
  if(!stripe||!process.env.STRIPE_WEBHOOK_SECRET)return res.status(400).send("Webhook not configured");
  let event;try{event=stripe.webhooks.constructEvent(req.body,req.headers["stripe-signature"],process.env.STRIPE_WEBHOOK_SECRET);}
  catch(err){return res.status(400).send("Webhook Error: "+err.message);}
+ // Stripe fulfillment is intentionally disabled: a payment event must never mark
+ // an order Paid without the same locked ticket-creation workflow used by admins.
  if(event.type==="checkout.session.completed"){
-  const orderId=event.data.object.metadata?.order_id;
-  if(orderId)await db.query("UPDATE orders SET status='Paid' WHERE id=$1",[orderId]);
+  console.warn("Stripe checkout completed but automatic fulfillment is disabled; verify payment and process order through the admin dashboard.");
+  return res.json({received:true,fulfillment:"manual-review-required"});
  }
  res.json({received:true});
 }));
