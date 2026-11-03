@@ -329,24 +329,47 @@ app.get("/documents/:id/download",asyncRoute(async(req,res)=>{
 }));
 app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const status=String(req.body?.status||"");if(!["Pending","Paid","Cancelled"].includes(status))return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
- const order=(await db.query("SELECT orders.*,events.title AS event_title,events.event_date,events.venue FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=$1",[req.params.id])).rows[0];if(!order)return res.status(404).json({error:"Ticket order not found."});
- await db.query("UPDATE orders SET status=$1 WHERE id=$2",[status,req.params.id]);let emailSent=false;
+ // Lock the order while checking/changing status and creating tickets. This makes
+ // concurrent admin clicks safe and ensures a ticket set is created only once.
+ const result=await db.transaction(async client=>{
+  const order=(await client.query("SELECT orders.*,events.title AS event_title,events.event_date,events.venue FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=$1 FOR UPDATE OF orders",[req.params.id])).rows[0];
+  if(!order)return {notFound:true};
+  if(order.status!==status){
+   if(order.status!=="Pending")return {conflict:true,currentStatus:order.status};
+   await client.query("UPDATE orders SET status=$1 WHERE id=$2",[status,order.id]);
+   order.status=status;
+  }
+  let tickets=[];
+  if(status==="Paid"){
+   tickets=(await client.query("SELECT * FROM tickets WHERE order_id=$1 ORDER BY id",[order.id])).rows;
+   if(!tickets.length){
+    for(let i=0;i<order.quantity;i++){
+     const ticket=await client.query("INSERT INTO tickets(order_id,token) VALUES($1,$2) RETURNING *",[order.id,crypto.randomBytes(24).toString("hex")]);
+     tickets.push(ticket.rows[0]);
+    }
+   }
+  }
+  return {order,tickets};
+ });
+ if(result.notFound)return res.status(404).json({error:"Ticket order not found."});
+ if(result.conflict)return res.status(409).json({error:"This order is already "+result.currentStatus+". Only Pending orders can be changed."});
+ const {order,tickets}=result;let emailSent=false;
  if(status==="Paid"){
   try{
-   let tickets=(await db.query("SELECT * FROM tickets WHERE order_id=$1 ORDER BY id",[order.id])).rows;
-   if(!tickets.length)tickets=await db.transaction(async client=>{
-    const created=[];for(let i=0;i<order.quantity;i++){const r=await client.query("INSERT INTO tickets(order_id,token) VALUES($1,$2) RETURNING *",[order.id,crypto.randomBytes(24).toString("hex")]);created.push(r.rows[0]);}return created;
-   });
    const emailed=(await db.query("SELECT tickets_emailed_at FROM orders WHERE id=$1",[order.id])).rows[0].tickets_emailed_at;
    if(!emailed){
-    const attachments=[];for(let i=0;i<tickets.length;i++){const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});}
+    const attachments=[];
+    for(let i=0;i<tickets.length;i++){
+     const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
+     attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
+    }
     emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
-     "Dear "+order.buyer_name+",\n\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\n\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\n\nELCSA Mavhola Parish Youth League",attachments);
-    if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW() WHERE id=$1",[order.id]);
+     "Dear "+order.buyer_name+",\\n\\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+    if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW() WHERE id=$1 AND tickets_emailed_at IS NULL",[order.id]);
    }else emailSent=true;
   }catch(e){console.error("E-ticket generation/email failed:",e.message);}
  }
- const count=await db.query("SELECT COUNT(*)::int AS n FROM tickets WHERE order_id=$1",[order.id]);res.json({ok:true,emailSent,ticketCount:status==="Paid"?count.rows[0].n:0});
+ res.json({ok:true,emailSent,ticketCount:status==="Paid"?tickets.length:0});
 }));
 app.put("/api/admin/settings",requireAdmin,asyncRoute(async(req,res)=>{
  const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions"];
