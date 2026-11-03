@@ -64,3 +64,21 @@ test("private proof objects are not exposed by the public upload route", () => {
   assert.match(route, /payment-proofs\//);
   assert.match(route, /sendStatus\(404\)/);
 });
+
+
+test("admin write requests require a matching same-origin Origin or Referer", () => {
+  assert.match(server, /app\.use\("\/api\/admin",\(req,res,next\)=>/);
+  assert.match(server, /Cross-site request blocked/);
+  assert.match(server, /Request origin could not be verified/);
+});
+
+test("membership CSV export neutralizes spreadsheet formula-leading values", () => {
+  assert.match(server, /value=String\(v\?\?""\)/);
+  assert.match(server, /\[=\+\\-@\]/);
+});
+
+test("public ticket booking buttons do not embed event titles in inline JavaScript", () => {
+  const app = fs.readFileSync(path.join(__dirname, "..", "public", "app.js"), "utf8");
+  assert.match(app, /data-buy-event/);
+  assert.doesNotMatch(app, /onclick="buyTicket/);
+});
