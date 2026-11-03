@@ -204,12 +204,19 @@ app.post("/api/applications",proofUpload.single("proof_of_payment"),validateUplo
   res.status(201).json({ok:true,id:result.rows[0].id,message:"Your application and proof of payment have been successfully submitted. The parish will review them and communicate the outcome."});
  }catch(e){await storage.deleteObject(key).catch(()=>{});throw e;}
 }));
-app.post("/api/admin/login",asyncRoute(async(req,res)=>{
+const adminLoginLimiter=rateLimit({
+ windowMs:15*60*1000,max:10,standardHeaders:true,legacyHeaders:false,
+ message:{error:"Too many sign-in attempts. Please wait 15 minutes and try again."}
+});
+app.post("/api/admin/login",adminLoginLimiter,asyncRoute(async(req,res)=>{
  const email=String(req.body.email||"").trim().toLowerCase(),password=String(req.body.password||"");
  const found=await db.query("SELECT * FROM admins WHERE LOWER(email)=LOWER($1)",[email]),admin=found.rows[0];
  if(!admin||!(await bcrypt.compare(password,admin.password_hash)))return res.status(401).json({error:"Incorrect email or password."});
- req.session.admin={id:admin.id,email:admin.email};
- req.session.save(err=>err?res.status(500).json({error:"Could not start your admin session. Please try again."}):res.json({ok:true,email:admin.email}));
+ req.session.regenerate(err=>{
+  if(err)return res.status(500).json({error:"Could not start your admin session. Please try again."});
+  req.session.admin={id:admin.id,email:admin.email};
+  req.session.save(saveErr=>saveErr?res.status(500).json({error:"Could not start your admin session. Please try again."}):res.json({ok:true,email:admin.email}));
+ });
 }));
 app.post("/api/admin/logout",(req,res)=>req.session.destroy(()=>res.json({ok:true})));
 app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
