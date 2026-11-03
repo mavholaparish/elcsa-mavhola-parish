@@ -354,6 +354,11 @@ app.get("/ticket/verify/:token",asyncRoute(async(req,res)=>{
  const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
  res.type("html").send("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Ticket verification</title></head><body style='font-family:Arial;background:#f4f6fa;padding:24px'><main style='max-width:520px;margin:30px auto;background:white;padding:28px;border-radius:14px;text-align:center'><img src='/youth-league-logo.png' alt='Youth League' style='max-width:130px;max-height:110px'><h1 style='color:#092b67'>VALID PAID TICKET</h1><p><b>"+esc(t.event_title)+"</b></p><p>"+esc(t.event_date||"Date to be announced")+" · "+esc(t.venue||"Venue to be announced")+"</p><p>Ticket holder: "+esc(t.buyer_name)+"</p><p>Ticket number: MAV-T"+String(t.id).padStart(6,"0")+"</p></main></body></html>");
 }));
+// Render preview readiness check: confirm the app and PostgreSQL are reachable.
+app.get("/healthz",asyncRoute(async(req,res)=>{
+ await db.query("SELECT 1");
+ res.json({ok:true,database:"connected"});
+}));
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.use((err,req,res,next)=>{console.error("Request failed:",err.message);if(res.headersSent)return next(err);res.status(err.code==="LIMIT_FILE_SIZE"?413:500).json({error:err.code==="LIMIT_FILE_SIZE"?"The uploaded file is too large.":"The request could not be completed. Please try again."});});
 bootstrap().then(()=>app.listen(PORT,()=>console.log("ELCSA Mavhola Parish website listening on "+PORT))).catch(err=>{console.error("Startup failed:",err);process.exit(1);});
