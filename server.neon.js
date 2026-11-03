@@ -381,6 +381,21 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  }
  res.json({ok:true,emailSent,ticketCount:status==="Paid"?tickets.length:0});
 }));
+app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
+ const token=String(req.body?.token||"").trim();
+ if(!/^[a-f0-9]{48}$/i.test(token))return res.status(400).json({error:"Enter the ticket QR code token."});
+ const redeemed=await db.query(`UPDATE tickets SET redeemed_at=NOW()
+  FROM orders WHERE tickets.order_id=orders.id AND tickets.token=$1
+   AND orders.status='Paid' AND tickets.redeemed_at IS NULL
+  RETURNING tickets.id`,[token]);
+ if(redeemed.rowCount)return res.json({ok:true,status:"redeemed",ticketNumber:"MAV-T"+String(redeemed.rows[0].id).padStart(6,"0")});
+ const existing=(await db.query(`SELECT tickets.id,tickets.redeemed_at,orders.status
+  FROM tickets JOIN orders ON orders.id=tickets.order_id WHERE tickets.token=$1`,[token])).rows[0];
+ if(!existing)return res.status(404).json({error:"Ticket not found."});
+ if(existing.status!=="Paid")return res.status(409).json({error:"This ticket is not paid and cannot be admitted."});
+ if(existing.redeemed_at)return res.status(409).json({error:"This ticket has already been used."});
+ return res.status(409).json({error:"Ticket could not be checked in. Please try again."});
+}));
 app.put("/api/admin/settings",requireAdmin,asyncRoute(async(req,res)=>{
  const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions"];
  await db.transaction(async client=>{for(const key of allowed)await client.query("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[key,String(req.body?.[key]||"").trim()]);});res.json({ok:true});
