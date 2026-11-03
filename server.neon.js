@@ -168,9 +168,12 @@ app.use("/api/admin",(req,res,next)=>{
 
 app.get("/uploads/*",asyncRoute(async(req,res)=>{
  const key=decodeURIComponent(req.params[0]||"");
- if(!key||key.includes("..")||key.startsWith("/")||key.startsWith("payment-proofs/"))return res.sendStatus(404);
+ // Only gallery assets are public through this route. Documents use their
+ // dedicated download endpoint; payment proofs must never be publicly served.
+ if(!key||key.includes("..")||key.startsWith("/")||!key.startsWith("gallery/"))return res.sendStatus(404);
  const result=await storage.getObjectStream(key);
  res.setHeader("Content-Type",result.ContentType||"application/octet-stream");
+ res.setHeader("X-Content-Type-Options","nosniff");
  res.setHeader("Cache-Control","public, max-age=3600");
  if(result.ContentLength)res.setHeader("Content-Length",String(result.ContentLength));
  result.Body.pipe(res);
