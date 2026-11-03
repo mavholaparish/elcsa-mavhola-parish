@@ -15,6 +15,7 @@ const {PDFDocument,StandardFonts,rgb}=require("pdf-lib");
 const QRCode=require("qrcode");
 const db=require("./database");
 const storage=require("./storage");
+const {validateUpload}=require("./upload-validation");
 
 const app=express();
 app.set("trust proxy",1);
@@ -188,7 +189,7 @@ app.get("/api/public",asyncRoute(async(req,res)=>{
  ]);
  res.json({announcements:announcements.rows,events:events.rows,media:media.rows.map(x=>({...x,filename:publicBase?x.filename:x.filename})),documents:documents.rows,paymentsEnabled:false,settings});
 }));
-app.post("/api/applications",proofUpload.single("proof_of_payment"),asyncRoute(async(req,res)=>{
+app.post("/api/applications",proofUpload.single("proof_of_payment"),validateUpload("proof"),asyncRoute(async(req,res)=>{
  const {full_name,email,phone,date_of_birth,occupation,congregation,address,motivation}=req.body||{};
  if(!full_name?.trim()||!email?.trim()||!email.includes("@")||!["Student","Employed","Unemployed"].includes(occupation))
   return res.status(400).json({error:"Please provide your full name, a valid email address and select your occupation."});
@@ -276,7 +277,7 @@ app.delete("/api/admin/events/:id",requireAdmin,asyncRoute(async(req,res)=>{
   throw error;
  }
 }));
-app.post("/api/admin/media",requireAdmin,upload.single("file"),asyncRoute(async(req,res)=>{
+app.post("/api/admin/media",requireAdmin,upload.single("file"),validateUpload("media"),asyncRoute(async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"Choose an image or video (maximum 20 MB)."});
  const key=await storage.putObject({area:"gallery",originalName:req.file.originalname,buffer:req.file.buffer,contentType:req.file.mimetype});
  try{const r=await db.query("INSERT INTO media(title,description,filename,media_type) VALUES($1,$2,$3,$4) RETURNING id",[req.body.title||req.file.originalname,req.body.description||"",key,req.file.mimetype]);res.json({ok:true,id:r.rows[0].id});}
@@ -288,7 +289,7 @@ app.put("/api/admin/media/:id",requireAdmin,asyncRoute(async(req,res)=>{
 app.delete("/api/admin/media/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const item=(await db.query("SELECT filename FROM media WHERE id=$1",[req.params.id])).rows[0];if(item){await db.query("DELETE FROM media WHERE id=$1",[req.params.id]);await storage.deleteObject(item.filename).catch(e=>console.error("R2 media cleanup failed:",e.message));}res.json({ok:true});
 }));
-app.post("/api/admin/documents",requireAdmin,documentUpload.single("file"),asyncRoute(async(req,res)=>{
+app.post("/api/admin/documents",requireAdmin,documentUpload.single("file"),validateUpload("document"),asyncRoute(async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"Choose a supported document (maximum 25 MB)."});
  const title=String(req.body.title||"").trim()||path.basename(req.file.originalname,path.extname(req.file.originalname)),description=String(req.body.description||"").trim();
  const key=await storage.putObject({area:"documents",originalName:req.file.originalname,buffer:req.file.buffer,contentType:req.file.mimetype});
