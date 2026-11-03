@@ -60,8 +60,10 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL DEFAULT 'Pending',
   stripe_session_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  tickets_emailed_at TIMESTAMPTZ
+  tickets_emailed_at TIMESTAMPTZ,
+  tickets_email_claimed_at TIMESTAMPTZ
 );
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS tickets_email_claimed_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS orders_event_status_idx ON orders (event_id, status);
 
 CREATE TABLE IF NOT EXISTS tickets (
