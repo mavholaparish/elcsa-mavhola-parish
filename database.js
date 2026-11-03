@@ -1,4 +1,11 @@
-const { Pool } = require("pg");
+const { Pool, types } = require("pg");
+
+// PostgreSQL BIGINT identifiers arrive as strings by default. The existing
+// browser UI compares IDs as numbers, so parse safe-range BIGINT values as numbers.
+types.setTypeParser(20, (value) => {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : value;
+});
 
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is required. Configure the Neon PostgreSQL connection string in the hosting environment.");
