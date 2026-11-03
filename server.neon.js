@@ -152,7 +152,7 @@ app.use(session({store:new PgSession({pool:db.pool,tableName:"user_sessions",cre
 app.use(express.static(path.join(__dirname,"public")));
 app.get("/uploads/*",asyncRoute(async(req,res)=>{
  const key=decodeURIComponent(req.params[0]||"");
- if(!key||key.includes("..")||key.startsWith("/"))return res.sendStatus(404);
+ if(!key||key.includes("..")||key.startsWith("/")||key.startsWith("payment-proofs/"))return res.sendStatus(404);
  const result=await storage.getObjectStream(key);
  res.setHeader("Content-Type",result.ContentType||"application/octet-stream");
  res.setHeader("Cache-Control","public, max-age=3600");
