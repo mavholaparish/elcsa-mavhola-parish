@@ -366,24 +366,38 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const {order,tickets}=result;let emailSent=false;
  if(status==="Paid"){
   try{
-   const emailed=(await db.query("SELECT tickets_emailed_at FROM orders WHERE id=$1",[order.id])).rows[0].tickets_emailed_at;
-   if(!emailed){
-    const attachments=[];
-    for(let i=0;i<tickets.length;i++){
-     const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
-     attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
+   const claim=await db.query(`UPDATE orders SET tickets_email_claimed_at=NOW()
+    WHERE id=$1 AND tickets_emailed_at IS NULL
+     AND (tickets_email_claimed_at IS NULL OR tickets_email_claimed_at < NOW()-INTERVAL '10 minutes')
+    RETURNING id`,[order.id]);
+   if(claim.rowCount){
+    try{
+     const attachments=[];
+     for(let i=0;i<tickets.length;i++){
+      const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
+      attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
+     }
+     emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
+      "Dear "+order.buyer_name+",\\n\\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+     if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW(),tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
+     else await db.query("UPDATE orders SET tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
+    }catch(error){
+     await db.query("UPDATE orders SET tickets_email_claimed_at=NULL WHERE id=$1",[order.id]).catch(()=>{});
+     throw error;
     }
-    emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
-     "Dear "+order.buyer_name+",\\n\\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
-    if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW() WHERE id=$1 AND tickets_emailed_at IS NULL",[order.id]);
-   }else emailSent=true;
+   }else{
+    const state=(await db.query("SELECT tickets_emailed_at FROM orders WHERE id=$1",[order.id])).rows[0];
+    emailSent=Boolean(state?.tickets_emailed_at);
+   }
   }catch(e){console.error("E-ticket generation/email failed:",e.message);}
  }
  res.json({ok:true,emailSent,ticketCount:status==="Paid"?tickets.length:0});
 }));
 app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
- const token=String(req.body?.token||"").trim();
- if(!/^[a-f0-9]{48}$/i.test(token))return res.status(400).json({error:"Enter the ticket QR code token."});
+ const rawToken=String(req.body?.token||"").trim();
+ const tokenMatch=rawToken.match(/(?:^|\\/)([a-f0-9]{48})\\/?$/i);
+ const token=tokenMatch?tokenMatch[1]:"";
+ if(!token)return res.status(400).json({error:"Enter a valid ticket QR token or verification link."});
  const redeemed=await db.query(`UPDATE tickets SET redeemed_at=NOW()
   FROM orders WHERE tickets.order_id=orders.id AND tickets.token=$1
    AND orders.status='Paid' AND tickets.redeemed_at IS NULL
@@ -418,10 +432,13 @@ app.post("/api/tickets/checkout",asyncRoute(async(req,res)=>{
  res.status(201).json({ok:true,orderReference:reference,emailSent,message:"Your ticket order "+reference+" has been recorded. Please pay by EFT and wait for the parish to verify your payment."});
 }));
 app.get("/ticket/verify/:token",asyncRoute(async(req,res)=>{
- const t=(await db.query("SELECT tickets.id,tickets.redeemed_at,orders.buyer_name,events.title AS event_title,events.event_date,events.venue FROM tickets JOIN orders ON orders.id=tickets.order_id JOIN events ON events.id=orders.event_id WHERE tickets.token=$1 AND orders.status='Paid'",[req.params.token])).rows[0];
+ const t=(await db.query("SELECT tickets.id,tickets.redeemed_at,events.title AS event_title,events.event_date,events.venue FROM tickets JOIN orders ON orders.id=tickets.order_id JOIN events ON events.id=orders.event_id WHERE tickets.token=$1 AND orders.status='Paid'",[req.params.token])).rows[0];
  if(!t)return res.status(404).type("html").send("<!doctype html><html><body><h1>Ticket not found</h1><p>This QR code is not recognised as a paid ticket.</p></body></html>");
  const esc=s=>String(s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
- res.type("html").send("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Ticket verification</title></head><body style='font-family:Arial;background:#f4f6fa;padding:24px'><main style='max-width:520px;margin:30px auto;background:white;padding:28px;border-radius:14px;text-align:center'><img src='/youth-league-logo.png' alt='Youth League' style='max-width:130px;max-height:110px'><h1 style='color:#092b67'>VALID PAID TICKET</h1><p><b>"+esc(t.event_title)+"</b></p><p>"+esc(t.event_date||"Date to be announced")+" · "+esc(t.venue||"Venue to be announced")+"</p><p>Ticket holder: "+esc(t.buyer_name)+"</p><p>Ticket number: MAV-T"+String(t.id).padStart(6,"0")+"</p></main></body></html>");
+ const used=Boolean(t.redeemed_at);
+ const heading=used?"TICKET ALREADY USED":"VALID PAID TICKET";
+ const message=used?"This ticket has already been checked in. It cannot be used for admission again.":"This ticket is valid for admission. Present it to event staff for check-in.";
+ res.type("html").send("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Ticket verification</title></head><body style='font-family:Arial;background:#f4f6fa;padding:24px'><main style='max-width:520px;margin:30px auto;background:white;padding:28px;border-radius:14px;text-align:center'><img src='/youth-league-logo.png' alt='Youth League' style='max-width:130px;max-height:110px'><h1 style='color:"+(used?"#a12626":"#092b67")+"'>"+heading+"</h1><p><b>"+esc(t.event_title)+"</b></p><p>"+esc(t.event_date||"Date to be announced")+" · "+esc(t.venue||"Venue to be announced")+"</p><p>Ticket number: MAV-T"+String(t.id).padStart(6,"0")+"</p><p>"+message+"</p></main></body></html>");
 }));
 // Render preview readiness check: confirm the app and PostgreSQL are reachable.
 app.get("/healthz",asyncRoute(async(req,res)=>{
