@@ -164,6 +164,10 @@ app.use("/api",rateLimit({windowMs:15*60*1000,max:100}));
 // Create the initial administrator from environment variables without overwriting
 // an existing password on every restart. Rotate credentials through the host dashboard.
 async function bootstrap(){
+ // Apply the idempotent base schema before accepting requests.
+ const schemaSql=fs.readFileSync(path.join(__dirname,"database","schema.sql"),"utf8");
+ await db.query(schemaSql);
+ await storage.checkStorage();
  await db.query(`CREATE TABLE IF NOT EXISTS user_sessions (
   sid VARCHAR NOT NULL PRIMARY KEY, sess JSON NOT NULL, expire TIMESTAMP(6) NOT NULL
  )`);
