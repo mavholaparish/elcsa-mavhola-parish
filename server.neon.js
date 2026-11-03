@@ -395,7 +395,7 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
 }));
 app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  const rawToken=String(req.body?.token||"").trim();
- const tokenMatch=rawToken.match(/(?:^|\\/)([a-f0-9]{48})\\/?$/i);
+ const tokenMatch=rawToken.match(/([a-f0-9]{48})\/?$/i);
  const token=tokenMatch?tokenMatch[1]:"";
  if(!token)return res.status(400).json({error:"Enter a valid ticket QR token or verification link."});
  const redeemed=await db.query(`UPDATE tickets SET redeemed_at=NOW()
