@@ -404,7 +404,7 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
       attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
      }
      emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
-      "Dear "+order.buyer_name+",\\n\\nYour payment has been verified. Your Gala Dinner booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: Gala Dinner"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+      "Dear "+order.buyer_name+",\\n\\nYour payment has been verified. Your Gala Dinner booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: Gala Dinner\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
      if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW(),tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
      else await db.query("UPDATE orders SET tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
     }catch(error){
