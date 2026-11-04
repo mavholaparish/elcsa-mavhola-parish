@@ -259,6 +259,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       const order = await db.transaction(async client => {
         const current = (await client.query("SELECT * FROM shop_orders WHERE id=$1 FOR UPDATE", [req.params.id])).rows[0];
         if (!current || current.status !== "Pending") return null;
+        if (status === "Paid" && current.payment_method !== "eft") return { cardAwaiting: true };
         if (status === "Cancelled") {
           const items = (await client.query("SELECT product_id,quantity FROM shop_order_items WHERE order_id=$1", [current.id])).rows;
           for (const item of items) if (item.product_id) await client.query("UPDATE shop_products SET stock_quantity=stock_quantity+$1 WHERE id=$2 AND stock_quantity IS NOT NULL", [item.quantity, item.product_id]);
@@ -266,6 +267,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
         return (await client.query("UPDATE shop_orders SET status=$1,paid_at=CASE WHEN $1='Paid' THEN COALESCE(paid_at,NOW()) ELSE paid_at END WHERE id=$2 RETURNING *", [status, current.id])).rows[0];
       });
       if (!order) return res.status(409).json({ error: "This order was not found or is no longer pending." });
+      if (order.cardAwaiting) return res.status(409).json({ error: "Card payments are confirmed automatically by PayFast. Please wait for the secure payment notification." });
       let emailSent = false;
       if (status === "Paid") {
         try { emailSent = await sendMail(order.customer_email, "Payment verified – ELCSA Mavhola Parish Shop " + reference(order.id),
