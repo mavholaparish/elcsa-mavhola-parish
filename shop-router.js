@@ -2,6 +2,7 @@ const express = require("express");
 const multer = require("multer");
 const crypto = require("crypto");
 const path = require("path");
+const dns = require("dns").promises;
 
 module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   const router = express.Router();
@@ -164,6 +165,13 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       const data = req.body || {};
       if (!data.signature || !safeEqual(signature(data, process.env.PAYFAST_PASSPHRASE), data.signature)) return res.sendStatus(400);
       if (String(data.merchant_id) !== String(process.env.PAYFAST_MERCHANT_ID) || String(data.payment_status) !== "COMPLETE") return res.sendStatus(400);
+      const payfastHosts = ["www.payfast.co.za", "w1w.payfast.co.za", "w2w.payfast.co.za", "sandbox.payfast.co.za"];
+      const payfastIps = new Set();
+      for (const host of payfastHosts) {
+        try { for (const address of await dns.lookup(host, { all: true })) payfastIps.add(address.address); } catch {}
+      }
+      const sourceIp = String(req.ip || req.socket?.remoteAddress || "").replace(/^::ffff:/, "");
+      if (!payfastIps.has(sourceIp)) return res.sendStatus(403);
       const orderId = Number(data.m_payment_id);
       if (!Number.isSafeInteger(orderId) || orderId < 1) return res.sendStatus(400);
       const order = (await db.query("SELECT * FROM shop_orders WHERE id=$1", [orderId])).rows[0];
