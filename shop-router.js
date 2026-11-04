@@ -97,7 +97,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
         items.push({ product: p, quantity: qty, size, color });
         total += Number(p.price_cents) * qty;
       }
-      if (total < 100 || total > 100000000) return res.status(400).json({ error: "The order total must be at least R1.00. Please review your cart." });
+      if (total < 500 || total > 100000000) return res.status(400).json({ error: "The order total must be at least R5.00. Please review your cart." });
       if (method === "eft") uploadedKey = await storage.putObject({ area: "payment-proofs", originalName: req.file.originalname, buffer: req.file.buffer, contentType: req.file.mimetype });
 
       const created = await db.transaction(async client => {
