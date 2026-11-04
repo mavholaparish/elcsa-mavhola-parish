@@ -66,7 +66,7 @@ async function buildTicketPdf(ticket, order, event) {
 
  // Replace the sample QR in the main ticket with this ticket's unique,
  // single-use verification QR.
- const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\\/$/,"");
+ const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
