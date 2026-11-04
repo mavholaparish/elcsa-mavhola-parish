@@ -94,6 +94,11 @@ async function showAdmin(tab){
    }catch(err){result.textContent=err.message;}
    finally{button.disabled=false;}
   };
+ if(tab==="shop"){
+  const shop=await api("/api/shop/admin/dashboard");
+  c.innerHTML=\`<form id="shopProductCreate" class="admin-form" enctype="multipart/form-data"><h3>Add a shop product</h3><label>Product name *<input name="title" required></label><label>Price (R) *<input name="price" type="number" min="1" step=".01" required></label><label>Category<input name="category" placeholder="T-shirts, clothing, accessories"></label><label>Stock quantity<input name="stock_quantity" type="number" min="0" placeholder="Leave blank for unlimited"></label><label class="wide">Description<textarea name="description" rows="2"></textarea></label><label>Available sizes<input name="sizes" placeholder="S, M, L, XL"></label><label>Available colours<input name="colors" placeholder="Navy, White, Gold"></label><label class="wide">Product photo<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label><button class="btn navy">Add product</button></form><h3>Products (\${shop.products.length})</h3><div class="admin-list">\${shop.products.map(p=>\`<article class="admin-record"><div class="record-top"><div><b>\${esc(p.title)}</b><div class="meta">\${money(p.price_cents)} · \${esc(p.category)} · \${p.active?"Visible":"Hidden"}</div></div><button class="action reject" onclick="removeShopProduct(\${p.id})">Remove</button></div><p>\${esc(p.description||"")}</p><p class="muted">Sizes: \${esc((p.sizes||[]).join(", ")||"Not specified")} · Colours: \${esc((p.colors||[]).join(", ")||"Not specified")} · Stock: \${p.stock_quantity===null?"Unlimited":p.stock_quantity}</p></article>\`).join("")||'<p class="muted">No products yet. Add your first item above.</p>'}</div><h3>Shop orders (\${shop.orders.length})</h3><div class="admin-list">\${shop.orders.map(o=>\`<article class="admin-record"><div class="record-top"><div><b>\${esc(o.reference)} · \${esc(o.customer_name)}</b><div class="meta">\${esc(o.customer_email)} · \${esc(o.customer_phone||"No phone")} · \${esc(o.created_at)}</div></div><span class="status \${o.status.toLowerCase()}">\${esc(o.status)}</span></div><p>\${o.items.map(i=>esc(i.product_title)+" × "+i.quantity+(i.size?" · "+esc(i.size):"")+(i.colour?" · "+esc(i.colour):"")).join("<br>")}<br><b>\${money(o.total_cents)}</b> · \${o.payment_method.toUpperCase()}</p>\${o.proof_key?\`<p><a href="/api/shop/admin/orders/\${o.id}/proof" target="_blank" rel="noopener">View EFT proof of payment</a></p>\`:""}\${o.status==="Pending"?\`<div class="decision-row"><button class="action" onclick="updateShopOrder(\${o.id},'Paid')">Confirm payment</button><button class="action reject" onclick="updateShopOrder(\${o.id},'Cancelled')">Cancel order</button></div>\`:""}</article>\`).join("")||'<p class="muted">No shop orders yet.</p>'}</div>\`;
+  $("#shopProductCreate").onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api("/api/shop/admin/products",{method:"POST",body:new FormData(e.target)});toast("Product added to the shop");showAdmin("shop");loadShop();}catch(err){toast(err.message);}finally{b.disabled=false;}};
+ }
  if(tab==="settings"){
   const st=d.settings||{};
   c.innerHTML=`<form id="settingsForm" class="admin-form"><h3>Youth League membership period</h3><p class="wide muted">Set the dates when membership applications are accepted. Applications open on the opening date and close automatically after the closing date. Leave both dates empty to keep applications open without a scheduled period.</p><label>Opening date<input name="membership_open_date" type="date" value="${esc(st.membership_open_date||"")}"></label><label>Closing date<input name="membership_close_date" type="date" value="${esc(st.membership_close_date||"")}"></label><h3 class="wide">Parish website information</h3><p class="wide muted">Update the public contact details shown on the website. You can change these fields without editing website code.</p><label>Parish email<input name="parish_email" type="email" value="${esc(st.parish_email||"")}"></label><label>Parish phone<input name="parish_phone" value="${esc(st.parish_phone||"")}"></label><label class="wide">Parish address<input name="parish_address" value="${esc(st.parish_address||"")}"></label><label class="wide">Tagline<input name="tagline" value="${esc(st.tagline||"")}"></label><h3 class="wide">Ticket EFT banking details</h3><p class="wide muted">These details will be included in ticket order emails. Enter the parish-approved bank details; do not guess or share banking information publicly elsewhere.</p><label>Account holder name<input name="eft_account_name" value="${esc(st.eft_account_name||"")}"></label><label>Bank name<input name="eft_bank_name" value="${esc(st.eft_bank_name||"")}"></label><label>Account number<input name="eft_account_number" value="${esc(st.eft_account_number||"")}"></label><label>Branch code<input name="eft_branch_code" value="${esc(st.eft_branch_code||"")}"></label><label class="wide">Payment reference instructions<input name="eft_reference_instructions" value="${esc(st.eft_reference_instructions||"Use your ticket order reference as your EFT payment reference.")}"></label><button class="btn navy">Save website information</button></form>`;
@@ -109,3 +114,56 @@ window.removeItem=async(type,id)=>{if(!confirm("Delete this item?"))return;try{a
 loadPublic();
 
 window.updateOrder=async id=>{try{const status=$("#orderStatus"+id).value;const d=await api(`/api/admin/orders/${id}`,{method:"PUT",body:JSON.stringify({status})});toast("Ticket order updated"+(status==="Paid"?(d.emailSent?". Paid ticket emailed to buyer.":". Ticket email not sent; check email configuration."):""));showAdmin("orders");}catch(e){toast(e.message)}};
+
+
+// Parish online shop: product catalogue, cart, EFT proof upload and hosted card checkout.
+let shopProducts=[],shopCart=[];
+const shopMoney=c=>"R "+(Number(c||0)/100).toFixed(2);
+function shopTotal(){return shopCart.reduce((sum,item)=>sum+Number(item.product.price_cents)*item.quantity,0);}
+function renderShopCart(){
+ const count=shopCart.reduce((sum,item)=>sum+item.quantity,0);
+ $("#shopCartCount").textContent=count;$("#shopCartTotal").textContent=shopMoney(shopTotal());
+ const lines=$("#shopCartLines");
+ if(!shopCart.length){lines.innerHTML='<p class="muted">Your cart is empty. Add a product to get started.</p>';$("#shopPlaceOrder").disabled=true;}
+ else{lines.innerHTML=shopCart.map((item,i)=>\`<div class="shop-cart-line"><div><b>\${esc(item.product.title)}</b><small>\${esc(item.size||"")}\${item.color?" · "+esc(item.color):""} · \${shopMoney(item.product.price_cents)} each</small></div><div class="shop-cart-qty"><button type="button" data-cart-minus="\${i}">−</button><span>\${item.quantity}</span><button type="button" data-cart-plus="\${i}">+</button><button type="button" data-cart-remove="\${i}" aria-label="Remove item">×</button></div></div>\`).join("")+\`<div class="shop-cart-total"><b>Total</b><b>\${shopMoney(shopTotal())}</b></div>\`;
+  lines.querySelectorAll("[data-cart-minus]").forEach(b=>b.onclick=()=>{const i=Number(b.dataset.cartMinus);shopCart[i].quantity--;if(shopCart[i].quantity<1)shopCart.splice(i,1);renderShopCart();});
+  lines.querySelectorAll("[data-cart-plus]").forEach(b=>b.onclick=()=>{const i=Number(b.dataset.cartPlus);if(shopCart[i].quantity<20)shopCart[i].quantity++;renderShopCart();});
+  lines.querySelectorAll("[data-cart-remove]").forEach(b=>b.onclick=()=>{shopCart.splice(Number(b.dataset.cartRemove),1);renderShopCart();});
+  $("#shopPlaceOrder").disabled=false;
+ }
+}
+async function loadShop(){
+ try{
+  const d=await api("/api/shop/products");shopProducts=d.products||[];
+  const card=$("#shopCardOption");card.disabled=!d.cardPaymentsEnabled;card.textContent=d.cardPaymentsEnabled?"Online card payment (PayFast)":"Online card payment (merchant setup required)";
+  const notice=$("#shopPaymentNotice");notice.textContent=d.cardPaymentsEnabled?"Checkout accepts EFT and secure online card payments.":"EFT checkout is available now. Online card payments will be enabled after the parish completes PayFast merchant setup.";
+  const root=$("#shopProducts");
+  if(!shopProducts.length){root.innerHTML='<p class="muted">Our merchandise catalogue is being prepared. Please check back soon.</p>';return;}
+  root.innerHTML=shopProducts.map(p=>\`<article class="shop-product">\${p.image_url?\`<img class="shop-product-image" loading="lazy" src="\${p.image_url}" alt="\${esc(p.title)}">\`:'<div class="shop-product-placeholder">ELCSA MAVHOLA PARISH</div>'}<div class="shop-product-body"><span class="shop-category">\${esc(p.category||"Merchandise")}</span><h3>\${esc(p.title)}</h3><p>\${esc(p.description||"")}</p><strong class="shop-price">\${shopMoney(p.price_cents)}</strong><label>Size<select data-size="\${p.id}">\${(p.sizes?.length?p.sizes:["Standard"]).map(v=>\`<option value="\${esc(v)}">\${esc(v)}</option>\`).join("")}</select></label><label>Colour<select data-color="\${p.id}">\${(p.colors?.length?p.colors:["Standard"]).map(v=>\`<option value="\${esc(v)}">\${esc(v)}</option>\`).join("")}</select></label><label>Quantity<input type="number" min="1" max="20" value="1" data-quantity="\${p.id}"></label><button class="btn navy" type="button" data-add-shop="\${p.id}" \${p.stock_quantity===0?"disabled":""}>Add to cart</button></div></article>\`).join("");
+  root.querySelectorAll("[data-add-shop]").forEach(b=>b.onclick=()=>{const id=Number(b.dataset.addShop),p=shopProducts.find(x=>Number(x.id)===id);if(!p)return;const size=root.querySelector("[data-size='"+id+"']").value,color=root.querySelector("[data-color='"+id+"']").value,quantity=Math.max(1,Math.min(20,Number(root.querySelector("[data-quantity='"+id+"']").value)||1));const existing=shopCart.find(x=>Number(x.product.id)===id&&x.size===size&&x.color===color);if(existing)existing.quantity=Math.min(20,existing.quantity+quantity);else shopCart.push({product:p,size,color,quantity});renderShopCart();toast(p.title+" added to your cart");});
+ }catch(e){$("#shopProducts").innerHTML='<p class="muted">The shop is temporarily unavailable. Please try again later.</p>';console.error(e);}
+}
+$("#openShopCart").onclick=()=>{renderShopCart();open("shopCartModal");};
+$("#shopPaymentMethod").onchange=e=>{$("#shopProofField").hidden=e.target.value!=="eft";};
+$("#shopCheckoutForm").onsubmit=async e=>{
+ e.preventDefault();if(!shopCart.length)return;
+ const form=e.target,button=$("#shopPlaceOrder"),message=$("#shopCheckoutMessage"),method=$("#shopPaymentMethod").value;
+ if(method==="eft"&&!form.elements.proof_of_payment.files.length){message.textContent="Please upload your EFT proof of payment.";return;}
+ button.disabled=true;message.textContent="Submitting your order…";
+ try{
+  const data=new FormData(form);data.set("cart",JSON.stringify(shopCart.map(x=>({product_id:x.product.id,quantity:x.quantity,size:x.size,color:x.color}))));
+  const result=await api("/api/shop/checkout",{method:"POST",body:data});
+  if(method==="card"){
+   const paymentForm=document.createElement("form");paymentForm.method="POST";paymentForm.action=result.paymentUrl;paymentForm.style.display="none";
+   Object.entries(result.fields).forEach(([name,value])=>{const input=document.createElement("input");input.type="hidden";input.name=name;input.value=value;paymentForm.appendChild(input);});
+   document.body.appendChild(paymentForm);paymentForm.submit();return;
+  }
+  message.textContent=result.message+" Order reference: "+result.orderReference;
+  shopCart=[];renderShopCart();form.reset();$("#shopPaymentMethod").value="eft";$("#shopProofField").hidden=false;
+ }catch(err){message.textContent=err.message;}
+ finally{button.disabled=false;}
+};
+window.removeShopProduct=async id=>{if(!confirm("Remove this product from the public shop? Existing order history will be kept."))return;try{await api("/api/shop/admin/products/"+id,{method:"DELETE"});toast("Product removed");showAdmin("shop");loadShop();}catch(e){toast(e.message);}};
+window.updateShopOrder=async(id,status)=>{try{const d=await api("/api/shop/admin/orders/"+id,{method:"PUT",body:JSON.stringify({status})});toast(status==="Paid"?(d.emailSent?"Payment confirmed and buyer emailed.":"Payment confirmed; buyer email could not be sent."):"Order cancelled.");showAdmin("shop");}catch(e){toast(e.message);}};
+const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPayment")){const n=$("#shopMessage");if(n)n.textContent=shopParams.get("shopPayment")==="success"?"Thank you. PayFast is processing your payment confirmation; the order will update when the secure payment notification is verified.":"Payment was cancelled. Your cart is still available if you wish to try again.";}
+loadShop();renderShopCart();
