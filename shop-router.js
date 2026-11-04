@@ -13,7 +13,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   const baseUrl = (process.env.PUBLIC_BASE_URL || "https://mavholaparish.co.za").replace(/\/$/, "");
   const isSandbox = String(process.env.PAYFAST_SANDBOX || "true").toLowerCase() !== "false";
   const pfHost = isSandbox ? "sandbox.payfast.co.za" : "www.payfast.co.za";
-  const configured = Boolean(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY && process.env.PAYFAST_PASSPHRASE);
+  const configured = Boolean(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY);
 
   function encodePf(value) {
     return encodeURIComponent(String(value)).replace(/[!'()*]/g, c => "%" + c.charCodeAt(0).toString(16).toUpperCase()).replace(/%20/g, "+");
@@ -48,7 +48,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   router.get("/products", async (req, res, next) => {
     try {
       const rows = await db.query("SELECT id,title,description,category,price_cents,image_key,sizes,colors,stock_quantity FROM shop_products WHERE active=TRUE ORDER BY created_at DESC");
-      res.json({ products: rows.rows.map(p => ({ ...p, image_url: p.image_key ? "/api/shop/products/" + p.id + "/image" : null })) });
+      res.json({ cardPaymentsEnabled: configured, products: rows.rows.map(p => ({ ...p, image_url: p.image_key ? "/api/shop/products/" + p.id + "/image" : null })) });
     } catch (e) { next(e); }
   });
   router.get("/products/:id/image", async (req, res, next) => {
@@ -104,10 +104,17 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
           "INSERT INTO shop_orders(customer_name,customer_email,customer_phone,payment_method,status,total_cents,proof_key,proof_original_name) VALUES($1,$2,$3,$4,'Pending',$5,$6,$7) RETURNING id",
           [name, email, phone, method, total, uploadedKey, method === "eft" ? path.basename(req.file.originalname) : null]
         )).rows[0];
-        for (const item of items) await client.query(
-          "INSERT INTO shop_order_items(order_id,product_id,product_title,unit_price_cents,quantity,size,colour) VALUES($1,$2,$3,$4,$5,$6,$7)",
-          [order.id, item.product.id, item.product.title, item.product.price_cents, item.quantity, item.size, item.color]
-        );
+        for (const item of items) {
+          const reserved = await client.query(
+            "UPDATE shop_products SET stock_quantity=CASE WHEN stock_quantity IS NULL THEN NULL ELSE stock_quantity-$1 END WHERE id=$2 AND active=TRUE AND (stock_quantity IS NULL OR stock_quantity >= $1) RETURNING id",
+            [item.quantity, item.product.id]
+          );
+          if (!reserved.rowCount) throw new Error("There is not enough stock for " + item.product.title + ". Please update your cart.");
+          await client.query(
+            "INSERT INTO shop_order_items(order_id,product_id,product_title,unit_price_cents,quantity,size,colour) VALUES($1,$2,$3,$4,$5,$6,$7)",
+            [order.id, item.product.id, item.product.title, item.product.price_cents, item.quantity, item.size, item.color]
+          );
+        }
         return order;
       });
       const orderRef = reference(created.id);
@@ -241,7 +248,15 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
     try {
       const status = String(req.body.status || "");
       if (!["Paid", "Cancelled"].includes(status)) return res.status(400).json({ error: "Choose Paid or Cancelled." });
-      const order = (await db.query("UPDATE shop_orders SET status=$1,paid_at=CASE WHEN $1='Paid' THEN COALESCE(paid_at,NOW()) ELSE paid_at END WHERE id=$2 AND status='Pending' RETURNING *", [status, req.params.id])).rows[0];
+      const order = await db.transaction(async client => {
+        const current = (await client.query("SELECT * FROM shop_orders WHERE id=$1 FOR UPDATE", [req.params.id])).rows[0];
+        if (!current || current.status !== "Pending") return null;
+        if (status === "Cancelled") {
+          const items = (await client.query("SELECT product_id,quantity FROM shop_order_items WHERE order_id=$1", [current.id])).rows;
+          for (const item of items) if (item.product_id) await client.query("UPDATE shop_products SET stock_quantity=stock_quantity+$1 WHERE id=$2 AND stock_quantity IS NOT NULL", [item.quantity, item.product_id]);
+        }
+        return (await client.query("UPDATE shop_orders SET status=$1,paid_at=CASE WHEN $1='Paid' THEN COALESCE(paid_at,NOW()) ELSE paid_at END WHERE id=$2 RETURNING *", [status, current.id])).rows[0];
+      });
       if (!order) return res.status(409).json({ error: "This order was not found or is no longer pending." });
       let emailSent = false;
       if (status === "Paid") {
