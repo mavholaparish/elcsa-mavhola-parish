@@ -8,9 +8,9 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 },
     fileFilter: (req, file, cb) => cb(null, ["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.mimetype)) });
   const imageUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024, files: 1 },
-    fileFilter: (req, file, cb) => cb(null, /^image\\/(jpeg|png|webp)$/.test(file.mimetype)) });
-  const safeName = value => path.basename(String(value || "file")).replace(/["\\r\\n]/g, "_");
-  const baseUrl = (process.env.PUBLIC_BASE_URL || "https://mavholaparish.co.za").replace(/\\/$/, "");
+    fileFilter: (req, file, cb) => cb(null, /^image\/(jpeg|png|webp)$/.test(file.mimetype)) });
+  const safeName = value => path.basename(String(value || "file")).replace(/["\r\n]/g, "_");
+  const baseUrl = (process.env.PUBLIC_BASE_URL || "https://mavholaparish.co.za").replace(/\/$/, "");
   const isSandbox = String(process.env.PAYFAST_SANDBOX || "true").toLowerCase() !== "false";
   const pfHost = isSandbox ? "sandbox.payfast.co.za" : "www.payfast.co.za";
   const configured = Boolean(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY && process.env.PAYFAST_PASSPHRASE);
@@ -72,7 +72,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       const method = String(req.body.payment_method || "");
       let cart;
       try { cart = JSON.parse(req.body.cart || "[]"); } catch { cart = null; }
-      if (!name || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || !Array.isArray(cart) || !cart.length || cart.length > 30)
+      if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !Array.isArray(cart) || !cart.length || cart.length > 30)
         return res.status(400).json({ error: "Please provide your name, a valid email address and at least one product." });
       if (!["eft", "card"].includes(method)) return res.status(400).json({ error: "Choose EFT or card payment." });
       if (method === "eft" && !req.file) return res.status(400).json({ error: "Please upload your EFT proof of payment (PDF, JPG, PNG or WEBP)." });
@@ -119,15 +119,15 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
           settings.eft_account_number && "Account number: " + settings.eft_account_number,
           settings.eft_branch_code && "Branch code: " + settings.eft_branch_code,
           "Payment reference: " + orderRef
-        ].filter(Boolean).join("\\n");
+        ].filter(Boolean).join("\n");
         try { await sendMail(email, "ELCSA Mavhola Parish – shop order " + orderRef,
-          "Dear " + name + ",\\n\\nThank you for your order. Your order is recorded and is awaiting EFT payment verification.\\n\\nOrder reference: " + orderRef + "\\nTotal: " + money(total) + "\\n\\nEFT details:\\n" + (bank || "Please contact the parish for EFT banking details.") + "\\n\\nThe parish will confirm your order once payment has been checked.\\n\\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop EFT order email failed:", e.message); }
+          "Dear " + name + ",\n\nThank you for your order. Your order is recorded and is awaiting EFT payment verification.\n\nOrder reference: " + orderRef + "\nTotal: " + money(total) + "\n\nEFT details:\n" + (bank || "Please contact the parish for EFT banking details.") + "\n\nThe parish will confirm your order once payment has been checked.\n\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop EFT order email failed:", e.message); }
         const adminEmail = String(process.env.ADMIN_EMAIL || "").trim();
-        if (adminEmail) try { await sendMail(adminEmail, "New parish shop EFT order " + orderRef, "A new shop order is awaiting EFT verification.\\nCustomer: " + name + "\\nEmail: " + email + "\\nTotal: " + money(total) + "\\nOrder reference: " + orderRef); } catch (e) { console.error("Shop admin email failed:", e.message); }
+        if (adminEmail) try { await sendMail(adminEmail, "New parish shop EFT order " + orderRef, "A new shop order is awaiting EFT verification.\nCustomer: " + name + "\nEmail: " + email + "\nTotal: " + money(total) + "\nOrder reference: " + orderRef); } catch (e) { console.error("Shop admin email failed:", e.message); }
         return res.status(201).json({ ok: true, method, orderReference: orderRef, message: "Your order " + orderRef + " has been recorded. The parish will verify your EFT payment and email you." });
       }
 
-      const firstLast = name.split(/\\s+/);
+      const firstLast = name.split(/\s+/);
       const fields = {
         merchant_id: process.env.PAYFAST_MERCHANT_ID,
         merchant_key: process.env.PAYFAST_MERCHANT_KEY,
@@ -171,7 +171,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       if (updated.rowCount) {
         const paid = updated.rows[0];
         try { await sendMail(paid.customer_email, "Payment received – ELCSA Mavhola Parish Shop " + reference(paid.id),
-          "Dear " + paid.customer_name + ",\\n\\nYour card payment has been confirmed. Your parish shop order is now marked as paid.\\n\\nOrder reference: " + reference(paid.id) + "\\nAmount paid: " + money(paid.total_cents) + "\\n\\nThe parish will contact you about collection.\\n\\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop card payment email failed:", e.message); }
+          "Dear " + paid.customer_name + ",\n\nYour card payment has been confirmed. Your parish shop order is now marked as paid.\n\nOrder reference: " + reference(paid.id) + "\nAmount paid: " + money(paid.total_cents) + "\n\nThe parish will contact you about collection.\n\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop card payment email failed:", e.message); }
         const adminEmail = String(process.env.ADMIN_EMAIL || "").trim();
         if (adminEmail) try { await sendMail(adminEmail, "Paid parish shop order " + reference(paid.id), "A card payment was confirmed by PayFast. Order " + reference(paid.id) + " is paid. Total: " + money(paid.total_cents)); } catch (e) { console.error("Shop card admin email failed:", e.message); }
       }
@@ -246,7 +246,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       let emailSent = false;
       if (status === "Paid") {
         try { emailSent = await sendMail(order.customer_email, "Payment verified – ELCSA Mavhola Parish Shop " + reference(order.id),
-          "Dear " + order.customer_name + ",\\n\\nThe parish has verified your EFT payment. Your shop order is now confirmed.\\n\\nOrder reference: " + reference(order.id) + "\\nAmount: " + money(order.total_cents) + "\\n\\nThe parish will contact you about collection.\\n\\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop EFT verification email failed:", e.message); }
+          "Dear " + order.customer_name + ",\n\nThe parish has verified your EFT payment. Your shop order is now confirmed.\n\nOrder reference: " + reference(order.id) + "\nAmount: " + money(order.total_cents) + "\n\nThe parish will contact you about collection.\n\nELCSA Mavhola Parish"); } catch (e) { console.error("Shop EFT verification email failed:", e.message); }
       }
       res.json({ ok: true, emailSent });
     } catch (e) { next(e); }
