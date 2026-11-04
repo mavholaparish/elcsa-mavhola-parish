@@ -76,8 +76,8 @@ async function buildTicketPdf(ticket, order, event) {
  }
  page.drawText("E-TICKET",{x:stubX+36,y:448,size:23,font:bold,color:white});
  page.drawLine({start:{x:stubX+28,y:432},end:{x:W-28,y:432},thickness:3,color:gold});
- page.drawText("INSTALLATION CONFERENCE",{x:48,y:430,size:18,font:bold,color:navy});
- page.drawText("Building a Youth for Christ",{x:48,y:405,size:13,font:italic,color:blue});
+ page.drawText("GALA DINNER",{x:48,y:430,size:22,font:bold,color:navy});
+ page.drawText("An evening of fellowship and celebration",{x:48,y:405,size:13,font:italic,color:blue});
  // Event details
  page.drawText("DATE",{x:48,y:365,size:9,font:bold,color:blue});
  page.drawText(String(event.event_date||"To be announced").slice(0,38),{x:48,y:342,size:14,font:bold,color:navy});
@@ -89,7 +89,7 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawText("TICKET HOLDER",{x:64,y:269,size:9,font:bold,color:blue});
  page.drawText(String(order.buyer_name).slice(0,48),{x:64,y:244,size:17,font:bold,color:navy});
  page.drawText("TICKET NUMBER",{x:64,y:205,size:9,font:bold,color:blue});
- const ticketNo="MYL-"+String(new Date().getFullYear())+"-"+String(ticket.id).padStart(6,"0");
+ const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
  page.drawText(ticketNo,{x:64,y:181,size:15,font:bold,color:navy});
  page.drawText("ORDER REF.  MAV-"+String(order.id).padStart(6,"0"),{x:64,y:145,size:10,font,color:muted});
  page.drawText("PAYMENT",{x:64,y:111,size:9,font:bold,color:blue});
@@ -106,7 +106,7 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawLine({start:{x:stubX,y:20},end:{x:stubX,y:575},thickness:1.5,color:rgb(0.72,0.79,0.89),dashArray:[5,5]});
  page.drawText("TICKET NO.",{x:stubX+26,y:392,size:9,font:bold,color:gold});
  page.drawText(ticketNo,{x:stubX+26,y:366,size:13,font:bold,color:white});
- page.drawText(String(event.title||"PARISH EVENT").toUpperCase().slice(0,22),{x:stubX+26,y:323,size:10,font:bold,color:white});
+ page.drawText("GALA DINNER",{x:stubX+26,y:323,size:12,font:bold,color:white});
  page.drawText("EVENT ADMISSION",{x:stubX+26,y:306,size:9,font,color:white});
  page.drawText(String(event.event_date||"DATE TO BE ANNOUNCED").toUpperCase().slice(0,24),{x:stubX+26,y:267,size:9,font:bold,color:gold});
  page.drawText(String(event.venue||"VENUE TO BE ANNOUNCED").toUpperCase().slice(0,25),{x:stubX+26,y:247,size:7,font,color:white});
@@ -404,7 +404,7 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
       attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
      }
      emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
-      "Dear "+order.buyer_name+",\\n\\nYour EFT payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+      "Dear "+order.buyer_name+",\\n\\nYour payment has been verified. Your Gala Dinner booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: Gala Dinner"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
      if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW(),tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
      else await db.query("UPDATE orders SET tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
     }catch(error){
