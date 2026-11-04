@@ -42,61 +42,57 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
- // The approved artwork is the complete ticket background. Do not silently
- // fall back to the older recreated layout: issuing a differently designed
- // ticket would be misleading if the artwork file has not been installed.
- const artworkPath=path.join(__dirname,"public","gala-dinner-ticket.png");
- if(!fs.existsSync(artworkPath)){
-  throw new Error("Approved Gala Dinner ticket artwork is missing: public/gala-dinner-ticket.png");
- }
- const artworkBytes=fs.readFileSync(artworkPath);
+ const W=842,H=420;
  const pdf=await PDFDocument.create();
- const image=await pdf.embedPng(artworkBytes);
- const W=842,H=W*(image.height/image.width);
  const page=pdf.addPage([W,H]);
- page.drawImage(image,{x:0,y:0,width:W,height:H});
-
  const font=await pdf.embedFont(StandardFonts.Helvetica);
  const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const navy=rgb(0.035,0.13,0.31);
- const white=rgb(1,1,1);
- const gold=rgb(0.96,0.70,0.08);
- const ticketNo=String(ticket.id).padStart(4,"0");
- const buyerName=String(order.buyer_name||"").trim().slice(0,42);
-
- // Replace the sample QR in the main ticket with this ticket's unique,
- // single-use verification QR.
+ const navy=rgb(0.035,0.13,0.31),gold=rgb(0.96,0.70,0.08),white=rgb(1,1,1),pale=rgb(0.96,0.97,0.99);
+ const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
+ // Use the approved background artwork when it is installed. The vector
+ // layout below keeps ticket delivery working if the image asset is absent.
+ const artworkPath=path.join(__dirname,"public","gala-dinner-ticket.png");
+ if(fs.existsSync(artworkPath)){
+  const image=await pdf.embedPng(fs.readFileSync(artworkPath));
+  page.drawImage(image,{x:0,y:0,width:W,height:H});
+ }else{
+  page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
+  page.drawRectangle({x:0,y:H-94,width:W,height:94,color:navy});
+  page.drawRectangle({x:0,y:0,width:18,height:H,color:gold});
+  page.drawText("ELCSA MAVHOLA PARISH",{x:42,y:H-39,size:23,font:bold,color:white});
+  page.drawText("YOUTH LEAGUE  •  OFFICIAL E-TICKET",{x:43,y:H-65,size:11,font:bold,color:gold});
+  page.drawText(String(event.title||"Parish Event").slice(0,48),{x:44,y:H-143,size:25,font:bold,color:navy});
+  page.drawText("ADMIT",{x:44,y:H-185,size:9,font:bold,color:navy});
+  page.drawText(String(order.buyer_name||"").trim().slice(0,48),{x:44,y:H-210,size:17,font:bold,color:navy});
+  page.drawText("DATE",{x:44,y:H-253,size:9,font:bold,color:navy});
+  page.drawText(String(event.event_date||"To be announced").slice(0,42),{x:44,y:H-274,size:12,font:font,color:navy});
+  page.drawText("VENUE",{x:44,y:H-311,size:9,font:bold,color:navy});
+  page.drawText(String(event.venue||"To be announced").slice(0,48),{x:44,y:H-332,size:12,font:font,color:navy});
+  page.drawText(ticketNo,{x:44,y:34,size:14,font:bold,color:navy});
+  page.drawText("Present this ticket at the entrance. Each QR code is valid for one admission.",{x:44,y:17,size:8,font:font,color:navy});
+  page.drawRectangle({x:W-230,y:25,width:190,height:H-50,color:white,borderColor:gold,borderWidth:2});
+ }
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const qrBox={x:W*0.575,y:H*0.188,width:W*0.132,height:H*0.300};
- page.drawRectangle({x:qrBox.x,y:qrBox.y,width:qrBox.width,height:qrBox.height,color:white,borderColor:gold,borderWidth:1.2});
- const qrSize=Math.min(qrBox.width*0.88,qrBox.height*0.79);
- page.drawImage(qr,{x:qrBox.x+(qrBox.width-qrSize)/2,y:qrBox.y+qrBox.height*0.16,width:qrSize,height:qrSize});
- const scanLabel="SCAN TO VERIFY";
- const scanWidth=bold.widthOfTextAtSize(scanLabel,6.5);
- page.drawText(scanLabel,{x:qrBox.x+(qrBox.width-scanWidth)/2,y:qrBox.y+4,size:6.5,font:bold,color:navy});
-
- // Cover the printed sample "0001" on the detachable stub and print the
- // actual ticket number in the same white number window.
- const numberBox={x:W*0.783,y:H*0.101,width:W*0.137,height:H*0.058};
- page.drawRectangle({x:numberBox.x,y:numberBox.y,width:numberBox.width,height:numberBox.height,color:white});
- const numberSize=ticketNo.length>6?15:21;
- const numberWidth=bold.widthOfTextAtSize(ticketNo,numberSize);
- page.drawText(ticketNo,{x:numberBox.x+(numberBox.width-numberWidth)/2,y:numberBox.y+(numberBox.height-numberSize)/2+2,size:numberSize,font:bold,color:navy});
-
- // Add the ticket holder's name in a discreet white/gold label in the
- // information area, without changing the artwork's overall design.
- if(buyerName){
-  const nameBox={x:W*0.235,y:H*0.074,width:W*0.305,height:H*0.035};
-  page.drawRectangle({x:nameBox.x,y:nameBox.y,width:nameBox.width,height:nameBox.height,color:white,opacity:0.96,borderColor:gold,borderWidth:0.6});
-  const label="ADMIT: "+buyerName;
-  let nameSize=9;
-  while(nameSize>6&&bold.widthOfTextAtSize(label,nameSize)>nameBox.width-10)nameSize-=0.5;
-  page.drawText(label,{x:nameBox.x+5,y:nameBox.y+(nameBox.height-nameSize)/2+1,size:nameSize,font:bold,color:navy});
+ if(fs.existsSync(artworkPath)){
+  const qrBox={x:W*0.575,y:H*0.188,width:W*0.132,height:H*0.300};
+  page.drawRectangle({x:qrBox.x,y:qrBox.y,width:qrBox.width,height:qrBox.height,color:white,borderColor:gold,borderWidth:1.2});
+  const qrSize=Math.min(qrBox.width*0.88,qrBox.height*0.79);
+  page.drawImage(qr,{x:qrBox.x+(qrBox.width-qrSize)/2,y:qrBox.y+qrBox.height*0.16,width:qrSize,height:qrSize});
+  const label="SCAN TO VERIFY",labelWidth=bold.widthOfTextAtSize(label,6.5);
+  page.drawText(label,{x:qrBox.x+(qrBox.width-labelWidth)/2,y:qrBox.y+4,size:6.5,font:bold,color:navy});
+  const numberBox={x:W*0.783,y:H*0.101,width:W*0.137,height:H*0.058};
+  page.drawRectangle({x:numberBox.x,y:numberBox.y,width:numberBox.width,height:numberBox.height,color:white});
+  const numberSize=21,numberWidth=bold.widthOfTextAtSize(ticketNo,numberSize);
+  page.drawText(ticketNo,{x:numberBox.x+(numberBox.width-numberWidth)/2,y:numberBox.y+(numberBox.height-numberSize)/2+2,size:numberSize,font:bold,color:navy});
+ }else{
+  const qx=W-210,qy=116,qs=150;
+  page.drawImage(qr,{x:qx,y:qy,width:qs,height:qs});
+  const label="SCAN TO VERIFY",labelWidth=bold.widthOfTextAtSize(label,10);
+  page.drawText(label,{x:qx+(qs-labelWidth)/2,y:qy-19,size:10,font:bold,color:navy});
  }
-
  return Buffer.from(await pdf.save());
 }
 
@@ -369,7 +365,7 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  if(result.notFound)return res.status(404).json({error:"Ticket order not found."});
  if(result.ticketMismatch)return res.status(409).json({error:"Ticket records do not match the order quantity. The order status was not changed; please contact technical support."});
  if(result.conflict)return res.status(409).json({error:"This order is already "+result.currentStatus+". Only Pending orders can be changed."});
- const {order,tickets}=result;let emailSent=false;
+ const {order,tickets}=result;let emailSent=false,emailError="";
  if(status==="Paid"){
   try{
    const claim=await db.query(`UPDATE orders SET tickets_email_claimed_at=NOW()
@@ -384,7 +380,7 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
       attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
      }
      emailSent=await sendMail(order.buyer_email,"Your ELCSA Mavhola Parish e-ticket(s) – Order MAV-"+String(order.id).padStart(6,"0"),
-      "Dear "+order.buyer_name+",\\n\\nYour payment has been verified. Your Gala Dinner booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\\n\\nEvent: Gala Dinner\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\n\\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+      "Dear "+order.buyer_name+",\n\nYour payment has been verified. Your booking is confirmed. Your individual PDF e-ticket(s), each with a unique QR code, are attached to this email.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nAmount paid: R "+(order.total_cents/100).toFixed(2)+"\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\n\nPlease bring your ticket(s) and show the QR code(s) at the entrance.\n\nELCSA Mavhola Parish Youth League",attachments);
      if(emailSent)await db.query("UPDATE orders SET tickets_emailed_at=NOW(),tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
      else await db.query("UPDATE orders SET tickets_email_claimed_at=NULL WHERE id=$1",[order.id]);
     }catch(error){
@@ -395,9 +391,9 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
     const state=(await db.query("SELECT tickets_emailed_at FROM orders WHERE id=$1",[order.id])).rows[0];
     emailSent=Boolean(state?.tickets_emailed_at);
    }
-  }catch(e){console.error("E-ticket generation/email failed:",e.message);}
+  }catch(e){emailError="Ticket generation or email delivery failed. Please check the Render service logs.";console.error("E-ticket generation/email failed:",e.message);}
  }
- res.json({ok:true,emailSent,ticketCount:status==="Paid"?tickets.length:0});
+ res.json({ok:true,emailSent,emailError,ticketCount:status==="Paid"?tickets.length:0});
 }));
 app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  const rawToken=String(req.body?.token||"").trim();
