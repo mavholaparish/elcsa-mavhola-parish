@@ -3,6 +3,7 @@ const multer = require("multer");
 const crypto = require("crypto");
 const path = require("path");
 const dns = require("dns").promises;
+const { validateUpload } = require("./upload-validation");
 
 module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   const router = express.Router();
@@ -64,7 +65,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
     } catch (e) { next(e); }
   });
 
-  router.post("/checkout", proofUpload.single("proof_of_payment"), async (req, res, next) => {
+  router.post("/checkout", proofUpload.single("proof_of_payment"), validateUpload("proof"), async (req, res, next) => {
     let uploadedKey = null;
     try {
       const name = String(req.body.customer_name || "").trim();
@@ -206,7 +207,7 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
       res.json({ products: products.rows, orders: orders.rows.map(o => ({ ...o, reference: reference(o.id), items: grouped.get(String(o.id)) || [] })) });
     } catch (e) { next(e); }
   });
-  router.post("/admin/products", requireAdmin, checkAdminOrigin, imageUpload.single("image"), async (req, res, next) => {
+  router.post("/admin/products", requireAdmin, checkAdminOrigin, imageUpload.single("image"), validateUpload("media"), async (req, res, next) => {
     let key = null;
     try {
       const title = String(req.body.title || "").trim(), price = Math.round(Number(req.body.price) * 100);
