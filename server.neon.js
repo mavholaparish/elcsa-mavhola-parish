@@ -219,6 +219,12 @@ app.post("/api/applications",proofUpload.single("proof_of_payment"),validateUplo
   [full_name.trim(),email.trim(),phone||"",date_of_birth||"",occupation,congregation||"",address||"",motivation||"",key,path.basename(req.file.originalname),req.file.mimetype]);
   try{await sendMail(email.trim(),"ELCSA Mavhola Parish – application received",
    `Dear ${full_name},\n\nYour Youth League membership application and proof of payment have been successfully submitted. The parish will review them and communicate the outcome.\n\nELCSA Mavhola Parish`);}catch(e){console.error("Applicant email failed:",e.message);}
+  try{
+   const adminEmail=String(process.env.ADMIN_EMAIL||"").trim();
+   if(adminEmail)await sendMail(adminEmail,"ELCSA Mavhola Parish – new membership application",
+    `A new Youth League membership application has been submitted.\n\nApplication ID: ${result.rows[0].id}\nApplicant: ${full_name.trim()}\nApplicant email: ${email.trim()}\nCongregation: ${congregation||"Not provided"}\n\nPlease sign in to the parish admin dashboard to review the application and proof of payment.\n\nELCSA Mavhola Parish`);
+   else console.warn("Admin application notification skipped: ADMIN_EMAIL is not configured.");
+  }catch(e){console.error("Admin notification email failed:",e.message);}
   res.status(201).json({ok:true,id:result.rows[0].id,message:"Your application and proof of payment have been successfully submitted. The parish will review them and communicate the outcome."});
  }catch(e){await storage.deleteObject(key).catch(()=>{});throw e;}
 }));
