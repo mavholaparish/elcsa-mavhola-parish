@@ -130,6 +130,24 @@ const proofUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:10*102
  fileFilter:fileFilter(f=>["application/pdf","image/jpeg","image/png","image/webp"].includes(f.mimetype))});
 const requireAdmin=(req,res,next)=>req.session.admin?next():res.status(401).json({error:"Please sign in as an administrator."});
 const settingsObject=async()=>Object.fromEntries((await db.query("SELECT key,value FROM site_settings")).rows.map(x=>[x.key,x.value]));
+function southAfricaDate(){
+ const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Johannesburg",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+ const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));
+ return values.year+"-"+values.month+"-"+values.day;
+}
+function membershipPeriod(settings){
+ const opening=settings.membership_open_date||"",closing=settings.membership_close_date||"";
+ if(!opening&&!closing)return {isOpen:true,status:"not_scheduled",message:"Membership applications are currently open."};
+ if(!opening||!closing)return {isOpen:false,status:"not_configured",message:"Membership applications are temporarily unavailable. Please contact the parish."};
+ const today=southAfricaDate();
+ if(today<opening)return {isOpen:false,status:"upcoming",message:"Membership applications will open on "+opening+"."};
+ if(today>closing)return {isOpen:false,status:"closed",message:"Membership applications are closed. The closing date was "+closing+"."};
+ return {isOpen:true,status:"open",message:"Membership applications are open until "+closing+"."};
+}
+const requireMembershipOpen=async(req,res,next)=>{
+ try{const period=membershipPeriod(await settingsObject());if(!period.isOpen)return res.status(403).json({error:period.message});next();}
+ catch(error){next(error);}
+};
 const safeName=s=>path.basename(String(s||"file")).replace(/["\r\n]/g,"_");
 const publicBase=(process.env.R2_PUBLIC_BASE_URL||"").replace(/\/$/,"");
 
@@ -205,9 +223,9 @@ app.get("/api/public",asyncRoute(async(req,res)=>{
   db.query("SELECT id,title,description,original_name,created_at FROM documents ORDER BY created_at DESC LIMIT 100"),
   settingsObject()
  ]);
- res.json({announcements:announcements.rows,events:events.rows,media:media.rows.map(x=>({...x,filename:publicBase?x.filename:x.filename})),documents:documents.rows,paymentsEnabled:false,settings});
+ res.json({announcements:announcements.rows,events:events.rows,media:media.rows.map(x=>({...x,filename:publicBase?x.filename:x.filename})),documents:documents.rows,paymentsEnabled:false,settings,membershipPeriod:membershipPeriod(settings)});
 }));
-app.post("/api/applications",proofUpload.single("proof_of_payment"),validateUpload("proof"),asyncRoute(async(req,res)=>{
+app.post("/api/applications",requireMembershipOpen,proofUpload.single("proof_of_payment"),validateUpload("proof"),asyncRoute(async(req,res)=>{
  const {full_name,email,phone,date_of_birth,occupation,congregation,address,motivation}=req.body||{};
  if(!full_name?.trim()||!email?.trim()||!email.includes("@")||!["Student","Employed","Unemployed"].includes(occupation))
   return res.status(400).json({error:"Please provide your full name, a valid email address and select your occupation."});
@@ -417,7 +435,12 @@ app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  return res.status(409).json({error:"Ticket could not be checked in. Please try again."});
 }));
 app.put("/api/admin/settings",requireAdmin,asyncRoute(async(req,res)=>{
- const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions"];
+ const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions","membership_open_date","membership_close_date"];
+ const opening=String(req.body?.membership_open_date||"").trim(),closing=String(req.body?.membership_close_date||"").trim();
+ const validDate=value=>!value||(/^\\d{4}-\\d{2}-\\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value);
+ if(!validDate(opening)||!validDate(closing))return res.status(400).json({error:"Enter valid opening and closing dates."});
+ if(Boolean(opening)!==Boolean(closing))return res.status(400).json({error:"Please enter both the opening date and closing date, or clear both dates to remove the schedule."});
+ if(opening&&closing<opening)return res.status(400).json({error:"The closing date cannot be earlier than the opening date."});
  await db.transaction(async client=>{for(const key of allowed)await client.query("INSERT INTO site_settings(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[key,String(req.body?.[key]||"").trim()]);});res.json({ok:true});
 }));
 app.post("/api/tickets/checkout",asyncRoute(async(req,res)=>{
