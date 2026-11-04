@@ -84,6 +84,8 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawLine({start:{x:330,y:330},end:{x:330,y:380},thickness:1,color:gold});
  page.drawText("VENUE",{x:354,y:365,size:9,font:bold,color:blue});
  page.drawText(String(event.venue||"To be announced").slice(0,42),{x:354,y:342,size:14,font:bold,color:navy});
+ page.drawText("PRICE PER TICKET",{x:48,y:310,size:9,font:bold,color:blue});
+ page.drawText("R "+(Number(order.total_cents||0)/100/Math.max(1,Number(order.quantity||1))).toFixed(2),{x:160,y:310,size:12,font:bold,color:navy});
  // Buyer details panel
  page.drawRectangle({x:43,y:82,width:565,height:218,color:cream,borderColor:rgb(0.95,0.84,0.57),borderWidth:1});
  page.drawText("TICKET HOLDER",{x:64,y:269,size:9,font:bold,color:blue});
