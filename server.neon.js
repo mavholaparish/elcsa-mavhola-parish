@@ -42,83 +42,61 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
+ // The approved artwork is the complete ticket background. Do not silently
+ // fall back to the older recreated layout: issuing a differently designed
+ // ticket would be misleading if the artwork file has not been installed.
+ const artworkPath=path.join(__dirname,"public","gala-dinner-ticket.png");
+ if(!fs.existsSync(artworkPath)){
+  throw new Error("Approved Gala Dinner ticket artwork is missing: public/gala-dinner-ticket.png");
+ }
+ const artworkBytes=fs.readFileSync(artworkPath);
  const pdf=await PDFDocument.create();
- const page=pdf.addPage([842,595]);
+ const image=await pdf.embedPng(artworkBytes);
+ const W=842,H=W*(image.height/image.width);
+ const page=pdf.addPage([W,H]);
+ page.drawImage(image,{x:0,y:0,width:W,height:H});
+
  const font=await pdf.embedFont(StandardFonts.Helvetica);
  const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const italic=await pdf.embedFont(StandardFonts.TimesRomanItalic);
- const navy=rgb(0.035,0.13,0.31),blue=rgb(0.08,0.31,0.62),gold=rgb(0.96,0.70,0.08);
- const cream=rgb(1,0.97,0.88),white=rgb(1,1,1),muted=rgb(0.29,0.35,0.45);
- const W=842,H=595,stubX=650;
- page.drawRectangle({x:0,y:0,width:W,height:H,color:white});
- page.drawRectangle({x:0,y:0,width:W,height:H,color:rgb(0.985,0.99,1),borderColor:rgb(0.86,0.89,0.94),borderWidth:1});
- page.drawRectangle({x:0,y:0,width:16,height:H,color:navy});
- page.drawRectangle({x:16,y:0,width:8,height:H,color:gold});
- page.drawRectangle({x:24,y:462,width:stubX-24,height:133,color:navy});
- page.drawRectangle({x:stubX,y:0,width:W-stubX,height:H,color:navy});
- page.drawRectangle({x:stubX,y:0,width:W-stubX,height:10,color:gold});
- // Official ELCSA parish logo from the website's existing assets.
- const churchLogoPath=path.join(__dirname,"public/elcsa-logo.png");
- if(fs.existsSync(churchLogoPath)){
-  const logo=await pdf.embedPng(fs.readFileSync(churchLogoPath));
-  const scale=Math.min(102/logo.width,102/logo.height);
-  page.drawImage(logo,{x:43,y:474,width:logo.width*scale,height:logo.height*scale});
- }
- page.drawText("ELCSA MAVHOLA PARISH",{x:164,y:548,size:13,font:bold,color:white});
- page.drawText("YOUTH LEAGUE",{x:164,y:507,size:31,font:bold,color:white});
- page.drawText("FAITH  •  SERVICE  •  LEADERSHIP",{x:166,y:482,size:10,font:italic,color:gold});
- // Youth League logo is also included as the event organiser's mark.
- const youthLogoPath=path.join(__dirname,"public/youth-league-logo.png");
- if(fs.existsSync(youthLogoPath)){
-  const logo=await pdf.embedPng(fs.readFileSync(youthLogoPath));
-  const scale=Math.min(68/logo.width,68/logo.height);
-  page.drawImage(logo,{x:stubX+62,y:500,width:logo.width*scale,height:logo.height*scale});
- }
- page.drawText("E-TICKET",{x:stubX+36,y:448,size:23,font:bold,color:white});
- page.drawLine({start:{x:stubX+28,y:432},end:{x:W-28,y:432},thickness:3,color:gold});
- page.drawText("GALA DINNER",{x:48,y:430,size:22,font:bold,color:navy});
- page.drawText("An evening of fellowship and celebration",{x:48,y:405,size:13,font:italic,color:blue});
- // Event details
- page.drawText("DATE",{x:48,y:365,size:9,font:bold,color:blue});
- page.drawText(String(event.event_date||"To be announced").slice(0,38),{x:48,y:342,size:14,font:bold,color:navy});
- page.drawLine({start:{x:330,y:330},end:{x:330,y:380},thickness:1,color:gold});
- page.drawText("VENUE",{x:354,y:365,size:9,font:bold,color:blue});
- page.drawText(String(event.venue||"To be announced").slice(0,42),{x:354,y:342,size:14,font:bold,color:navy});
- page.drawText("PRICE PER TICKET",{x:48,y:310,size:9,font:bold,color:blue});
- page.drawText("R "+(Number(order.total_cents||0)/100/Math.max(1,Number(order.quantity||1))).toFixed(2),{x:160,y:310,size:12,font:bold,color:navy});
- // Buyer details panel
- page.drawRectangle({x:43,y:82,width:565,height:218,color:cream,borderColor:rgb(0.95,0.84,0.57),borderWidth:1});
- page.drawText("TICKET HOLDER",{x:64,y:269,size:9,font:bold,color:blue});
- page.drawText(String(order.buyer_name).slice(0,48),{x:64,y:244,size:17,font:bold,color:navy});
- page.drawText("TICKET NUMBER",{x:64,y:205,size:9,font:bold,color:blue});
- const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
- page.drawText(ticketNo,{x:64,y:181,size:15,font:bold,color:navy});
- page.drawText("ORDER REF.  MAV-"+String(order.id).padStart(6,"0"),{x:64,y:145,size:10,font,color:muted});
- page.drawText("PAYMENT",{x:64,y:111,size:9,font:bold,color:blue});
- page.drawRectangle({x:137,y:101,width:67,height:23,color:rgb(0.83,0.96,0.86),borderColor:rgb(0.25,0.65,0.38),borderWidth:0.6});
- page.drawText("PAID",{x:153,y:108,size:10,font:bold,color:rgb(0.08,0.43,0.22)});
- // Compact QR is contained in its own reserved area.
+ const navy=rgb(0.035,0.13,0.31);
+ const white=rgb(1,1,1);
+ const gold=rgb(0.96,0.70,0.08);
+ const ticketNo=String(ticket.id).padStart(4,"0");
+ const buyerName=String(order.buyer_name||"").trim().slice(0,42);
+
+ // Replace the sample QR in the main ticket with this ticket's unique,
+ // single-use verification QR.
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
- const qrData=await QRCode.toDataURL(base+"/ticket/verify/"+ticket.token,{errorCorrectionLevel:"H",margin:1,width:180});
+ const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
+ const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- page.drawRectangle({x:490,y:116,width:94,height:112,color:white,borderColor:gold,borderWidth:1});
- page.drawImage(qr,{x:503,y:137,width:68,height:68});
- page.drawText("SCAN TO VERIFY",{x:500,y:124,size:7,font:bold,color:navy});
- // Detachable stub
- page.drawLine({start:{x:stubX,y:20},end:{x:stubX,y:575},thickness:1.5,color:rgb(0.72,0.79,0.89),dashArray:[5,5]});
- page.drawText("TICKET NO.",{x:stubX+26,y:392,size:9,font:bold,color:gold});
- page.drawText(ticketNo,{x:stubX+26,y:366,size:13,font:bold,color:white});
- page.drawText("GALA DINNER",{x:stubX+26,y:323,size:12,font:bold,color:white});
- page.drawText("EVENT ADMISSION",{x:stubX+26,y:306,size:9,font,color:white});
- page.drawText(String(event.event_date||"DATE TO BE ANNOUNCED").toUpperCase().slice(0,24),{x:stubX+26,y:267,size:9,font:bold,color:gold});
- page.drawText(String(event.venue||"VENUE TO BE ANNOUNCED").toUpperCase().slice(0,25),{x:stubX+26,y:247,size:7,font,color:white});
- page.drawLine({start:{x:stubX+25,y:224},end:{x:W-25,y:224},thickness:0.8,color:rgb(0.35,0.48,0.67)});
- page.drawText("KEEP THIS TICKET SAFE",{x:stubX+26,y:194,size:9,font:bold,color:white});
- page.drawText("Present your QR code at",{x:stubX+26,y:174,size:8,font,color:white});
- page.drawText("the entrance for admission.",{x:stubX+26,y:160,size:8,font,color:white});
- page.drawText("TOGETHER IN CHRIST",{x:stubX+26,y:77,size:9,font:bold,color:gold});
- page.drawText("Towards a Better Tomorrow",{x:stubX+26,y:58,size:8,font:italic,color:white});
- page.drawText("One ticket admits one person",{x:48,y:48,size:9,font:italic,color:muted});
+ const qrBox={x:W*0.575,y:H*0.188,width:W*0.132,height:H*0.300};
+ page.drawRectangle({x:qrBox.x,y:qrBox.y,width:qrBox.width,height:qrBox.height,color:white,borderColor:gold,borderWidth:1.2});
+ const qrSize=Math.min(qrBox.width*0.88,qrBox.height*0.79);
+ page.drawImage(qr,{x:qrBox.x+(qrBox.width-qrSize)/2,y:qrBox.y+qrBox.height*0.16,width:qrSize,height:qrSize});
+ const scanLabel="SCAN TO VERIFY";
+ const scanWidth=bold.widthOfTextAtSize(scanLabel,6.5);
+ page.drawText(scanLabel,{x:qrBox.x+(qrBox.width-scanWidth)/2,y:qrBox.y+4,size:6.5,font:bold,color:navy});
+
+ // Cover the printed sample "0001" on the detachable stub and print the
+ // actual ticket number in the same white number window.
+ const numberBox={x:W*0.783,y:H*0.101,width:W*0.137,height:H*0.058};
+ page.drawRectangle({x:numberBox.x,y:numberBox.y,width:numberBox.width,height:numberBox.height,color:white});
+ const numberSize=ticketNo.length>6?15:21;
+ const numberWidth=bold.widthOfTextAtSize(ticketNo,numberSize);
+ page.drawText(ticketNo,{x:numberBox.x+(numberBox.width-numberWidth)/2,y:numberBox.y+(numberBox.height-numberSize)/2+2,size:numberSize,font:bold,color:navy});
+
+ // Add the ticket holder's name in a discreet white/gold label in the
+ // information area, without changing the artwork's overall design.
+ if(buyerName){
+  const nameBox={x:W*0.235,y:H*0.074,width:W*0.305,height:H*0.035};
+  page.drawRectangle({x:nameBox.x,y:nameBox.y,width:nameBox.width,height:nameBox.height,color:white,opacity:0.96,borderColor:gold,borderWidth:0.6});
+  const label="ADMIT: "+buyerName;
+  let nameSize=9;
+  while(nameSize>6&&bold.widthOfTextAtSize(label,nameSize)>nameBox.width-10)nameSize-=0.5;
+  page.drawText(label,{x:nameBox.x+5,y:nameBox.y+(nameBox.height-nameSize)/2+1,size:nameSize,font:bold,color:navy});
+ }
+
  return Buffer.from(await pdf.save());
 }
 
