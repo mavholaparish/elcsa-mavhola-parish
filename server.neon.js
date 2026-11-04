@@ -197,6 +197,8 @@ app.get("/uploads/*",asyncRoute(async(req,res)=>{
  result.Body.pipe(res);
 }));
 app.use("/api",rateLimit({windowMs:15*60*1000,max:100}));
+const shopRouter=require("./shop-router")({db,storage,sendMail,requireAdmin});
+app.use("/api/shop",shopRouter);
 
 // Create the initial administrator from environment variables without overwriting
 // an existing password on every restart. Rotate credentials through the host dashboard.

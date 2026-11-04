@@ -112,3 +112,48 @@ INSERT INTO site_settings (key, value) VALUES
   ('eft_branch_code', ''),
   ('eft_reference_instructions', 'Use your ticket order reference as the EFT payment reference.')
 ON CONFLICT (key) DO NOTHING;
+
+ 
+CREATE TABLE IF NOT EXISTS shop_products (
+  id BIGSERIAL PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT 'Merchandise',
+  price_cents INTEGER NOT NULL CHECK (price_cents >= 0),
+  image_key TEXT,
+  sizes TEXT[] NOT NULL DEFAULT '{}',
+  colors TEXT[] NOT NULL DEFAULT '{}',
+  stock_quantity INTEGER CHECK (stock_quantity IS NULL OR stock_quantity >= 0),
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS shop_products_active_created_idx ON shop_products(active, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS shop_orders (
+  id BIGSERIAL PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  customer_email TEXT NOT NULL,
+  customer_phone TEXT,
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('eft','card')),
+  status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending','Paid','Cancelled')),
+  total_cents INTEGER NOT NULL CHECK (total_cents > 0),
+  proof_key TEXT,
+  proof_original_name TEXT,
+  payfast_payment_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  paid_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS shop_orders_created_idx ON shop_orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS shop_orders_status_idx ON shop_orders(status);
+
+CREATE TABLE IF NOT EXISTS shop_order_items (
+  id BIGSERIAL PRIMARY KEY,
+  order_id BIGINT NOT NULL REFERENCES shop_orders(id) ON DELETE CASCADE,
+  product_id BIGINT REFERENCES shop_products(id) ON DELETE SET NULL,
+  product_title TEXT NOT NULL,
+  unit_price_cents INTEGER NOT NULL,
+  quantity INTEGER NOT NULL CHECK (quantity > 0),
+  size TEXT NOT NULL DEFAULT '',
+  colour TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS shop_order_items_order_idx ON shop_order_items(order_id);

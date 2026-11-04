@@ -32,7 +32,7 @@ function safeExtension(originalName = "") {
 }
 
 function makeObjectKey(area, originalName) {
-  const safeArea = ["gallery", "documents", "payment-proofs"].includes(area) ? area : "misc";
+  const safeArea = ["gallery", "documents", "payment-proofs", "shop"].includes(area) ? area : "misc";
   return `${safeArea}/${Date.now()}-${crypto.randomBytes(16).toString("hex")}${safeExtension(originalName)}`;
 }
 
