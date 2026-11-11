@@ -46,3 +46,35 @@
 #shopPlaceOrder:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:850px){.shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.shop-grid{grid-template-columns:1fr}.shop-product-image,.shop-product-placeholder{height:210px}.shop-toolbar{align-items:stretch}.shop-toolbar .btn{width:100%}.shop-cart-line{align-items:flex-start;flex-direction:column}.shop-cart-qty{align-self:flex-end}}
+
+/* Dedicated parish shop landing page */
+.shop-page{min-height:78vh;background:#f7f8fb;padding-top:42px}
+.shop-page .section-heading{display:block;max-width:1200px;margin:0 auto 28px}
+.shop-page .section-heading h2{font-size:clamp(30px,4vw,44px)}
+.shop-back-link{display:inline-block;color:var(--blue);font-weight:700;font-size:13px;margin-bottom:18px}
+.shop-page .shop-grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:22px}
+.shop-page .shop-product{box-shadow:0 8px 26px #11264b0d}
+.shop-page .shop-toolbar{max-width:1200px;margin:0 auto 22px;position:sticky;top:78px;background:#f7f8fb;padding:12px 0;z-index:3}
+#shopCartModal .modal-card{max-width:760px;width:100%;max-height:92vh;overflow:auto}
+#shopCartLines{margin:18px 0}
+.shop-cart-line{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.shop-cart-qty{display:flex;align-items:center;gap:10px}
+.shop-cart-qty button{border:1px solid var(--line);background:#fff;border-radius:5px;padding:7px 11px}
+.shop-cart-total{display:flex;justify-content:space-between;padding:18px 0;font-size:18px;color:var(--navy)}
+.ticket-reader{width:100%;max-width:440px;min-height:80px;margin:16px auto;border-radius:10px;overflow:hidden;background:#101827}
+.ticket-reader video{width:100%!important;object-fit:cover}
+.ticket-scan-result{padding:15px;border-radius:8px;font-weight:800;text-align:center;background:#eef2f7;color:var(--navy);min-height:52px}
+.ticket-scan-result.admitted{background:#e4f6eb;color:#176b46}
+.ticket-scan-result.duplicate,.ticket-scan-result.rejected{background:#fde8e8;color:#a21d2a}
+.ticket-scan-result.checking{background:#fff4d8;color:#74500a}
+.ticket-scanner-panel details{margin-top:14px}
+.ticket-scanner-panel summary{cursor:pointer;font-weight:700;color:var(--navy)}
+@media(max-width:760px){
+ .shop-page{padding:28px 16px}
+ .shop-page .shop-toolbar{top:66px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+ .shop-page .shop-toolbar .btn{padding:11px 13px}
+ #shopCartModal{align-items:stretch;padding:0}
+ #shopCartModal .modal-card{max-height:none;height:100%;border-radius:0;padding:26px 18px}
+ .ticket-reader{max-width:100%}
+ .ticket-scanner-panel .decision-row{display:flex;flex-wrap:wrap}
+}
