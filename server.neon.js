@@ -400,16 +400,26 @@ app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  const tokenMatch=rawToken.match(/([a-f0-9]{48})\/?$/i);
  const token=tokenMatch?tokenMatch[1]:"";
  if(!token)return res.status(400).json({error:"Enter a valid ticket QR token or verification link."});
- const redeemed=await db.query(`UPDATE tickets SET redeemed_at=NOW()
-  FROM orders WHERE tickets.order_id=orders.id AND tickets.token=$1
-   AND orders.status='Paid' AND tickets.redeemed_at IS NULL
-  RETURNING tickets.id`,[token]);
- if(redeemed.rowCount)return res.json({ok:true,status:"redeemed",ticketNumber:"MAV-T"+String(redeemed.rows[0].id).padStart(6,"0")});
+ const redeemed=await db.transaction(async client=>{
+  const result=await client.query(`UPDATE tickets SET redeemed_at=NOW()
+   FROM orders WHERE tickets.order_id=orders.id AND tickets.token=$1
+    AND orders.status='Paid' AND tickets.redeemed_at IS NULL
+   RETURNING tickets.id,tickets.order_id`,[token]);
+  if(!result.rowCount)return {ticket:null};
+  const ticket=result.rows[0];
+  const counts=(await client.query(`SELECT COUNT(*)::int AS total,
+    COUNT(*) FILTER (WHERE redeemed_at IS NOT NULL)::int AS used
+    FROM tickets WHERE order_id=$1`,[ticket.order_id])).rows[0];
+  if(Number(counts.total)>0&&Number(counts.total)===Number(counts.used))
+   await client.query("UPDATE orders SET status='Used' WHERE id=$1 AND status='Paid'",[ticket.order_id]);
+  return {ticket};
+ });
+ if(redeemed.ticket)return res.json({ok:true,status:"redeemed",ticketNumber:"MAV-T"+String(redeemed.ticket.id).padStart(6,"0")});
  const existing=(await db.query(`SELECT tickets.id,tickets.redeemed_at,orders.status
   FROM tickets JOIN orders ON orders.id=tickets.order_id WHERE tickets.token=$1`,[token])).rows[0];
  if(!existing)return res.status(404).json({error:"Ticket not found."});
- if(existing.status!=="Paid")return res.status(409).json({error:"This ticket is not paid and cannot be admitted."});
  if(existing.redeemed_at)return res.status(409).json({error:"This ticket has already been used."});
+ if(existing.status!=="Paid")return res.status(409).json({error:"This ticket is not paid and cannot be admitted."});
  return res.status(409).json({error:"Ticket could not be checked in. Please try again."});
 }));
 app.put("/api/admin/settings",requireAdmin,asyncRoute(async(req,res)=>{
