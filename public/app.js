@@ -170,5 +170,18 @@ window.removeShopProduct=async id=>{if(!confirm("Remove this product from the pu
 window.updateShopOrder=async(id,status)=>{try{const d=await api("/api/shop/admin/orders/"+id,{method:"PUT",body:JSON.stringify({status})});toast(status==="Paid"?(d.emailSent?"Payment confirmed and buyer emailed.":"Payment confirmed; buyer email could not be sent."):"Order cancelled.");showAdmin("shop");}catch(e){toast(e.message);}};
 const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPayment")){const n=$("#shopMessage");if(n)n.textContent=shopParams.get("shopPayment")==="success"?"Thank you. PayFast is processing your payment confirmation; the order will update when the secure payment notification is verified.":"Payment was cancelled. Your cart is still available if you wish to try again.";}
 loadShop();renderShopCart();
+ // Dedicated storefront view: the Shop navigation opens a focused catalogue page.
+ const shopOnly=new URLSearchParams(location.search).get("page")==="shop";
+ if(shopOnly){
+  document.querySelectorAll("main>section").forEach(section=>{if(section.id!=="shop")section.hidden=true;});
+  const shopSection=$("#shop");
+  shopSection.classList.add("shop-page");
+  const heading=shopSection.querySelector(".section-heading");
+  if(heading){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
+  const title=shopSection.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";
+  document.title="Parish Shop | ELCSA Mavhola Parish";
+  window.scrollTo(0,0);
+ }
+
 
 window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboard"),p=d.products.find(x=>Number(x.id)===Number(id));if(!p)return;const title=prompt("Product name:",p.title);if(title===null)return;const price=prompt("Price in rand:",(Number(p.price_cents)/100).toFixed(2));if(price===null)return;const description=prompt("Description:",p.description||"");if(description===null)return;const category=prompt("Category:",p.category||"Merchandise");if(category===null)return;const sizes=prompt("Available sizes, separated by commas:",(p.sizes||[]).join(", "));if(sizes===null)return;const colors=prompt("Available colours, separated by commas:",(p.colors||[]).join(", "));if(colors===null)return;const stock=prompt("Stock quantity (leave blank for unlimited):",p.stock_quantity===null?"":p.stock_quantity);if(stock===null)return;await api("/api/shop/admin/products/"+id,{method:"PUT",body:JSON.stringify({title,price,description,category,sizes,colors,stock_quantity:stock})});toast("Product updated");showAdmin("shop");loadShop();}catch(e){toast(e.message);}};
