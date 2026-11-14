@@ -18,6 +18,8 @@ const storage=require("./storage");
 const {validateUpload}=require("./upload-validation");
 
 const app=express();
+let startupReady=false;
+let startupFailure=null;
 app.set("trust proxy",1);
 const PORT=process.env.PORT||3000;
 const stripe=process.env.STRIPE_SECRET_KEY?new Stripe(process.env.STRIPE_SECRET_KEY):null;
@@ -172,6 +174,10 @@ app.get("/uploads/*",asyncRoute(async(req,res)=>{
  if(result.ContentLength)res.setHeader("Content-Length",String(result.ContentLength));
  result.Body.pipe(res);
 }));
+app.use("/api",(req,res,next)=>{
+ if(!startupReady)return res.status(503).json({error:"The parish system is starting. Please try again shortly."});
+ next();
+});
 app.use("/api",rateLimit({windowMs:15*60*1000,max:100}));
 const shopRouter=require("./shop-router")({db,storage,sendMail,requireAdmin});
 app.use("/api/shop",shopRouter);
@@ -459,9 +465,20 @@ app.get("/ticket/verify/:token",asyncRoute(async(req,res)=>{
 }));
 // Render preview readiness check: confirm the app and PostgreSQL are reachable.
 app.get("/healthz",asyncRoute(async(req,res)=>{
+ if(!startupReady)return res.status(503).json({ok:false,status:"starting",error:startupFailure?"Startup checks failed":"Startup checks are still running"});
  await db.query("SELECT 1");
  res.json({ok:true,database:"connected"});
 }));
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.use((err,req,res,next)=>{console.error("Request failed:",err.message);if(res.headersSent)return next(err);res.status(err.code==="LIMIT_FILE_SIZE"?413:500).json({error:err.code==="LIMIT_FILE_SIZE"?"The uploaded file is too large.":"The request could not be completed. Please try again."});});
-bootstrap().then(()=>app.listen(PORT,()=>console.log("ELCSA Mavhola Parish website listening on "+PORT))).catch(err=>{console.error("Startup failed:",err);process.exit(1);});
+const server=app.listen(PORT,()=>console.log("ELCSA Mavhola Parish website listening on "+PORT));
+// Serve the public website immediately. Database-backed API routes remain gated
+// until schema and private object storage checks have completed successfully.
+bootstrap().then(()=>{
+ startupReady=true;
+ console.log("ELCSA Mavhola Parish startup checks complete; API is ready.");
+}).catch(err=>{
+ startupFailure=err;
+ console.error("Startup checks failed; public pages remain available but API routes are paused:",err);
+});
+process.on("SIGTERM",()=>server.close(()=>db.close().finally(()=>process.exit(0))));
