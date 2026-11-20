@@ -77,14 +77,16 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
  const goldH=panelH*0.43,goldY=panelY;
  page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:white});
- // QR in the upper navy section; fixed spacing avoids any overlap with info block.
+ // QR section: keep the heading in its own top row and give the QR a larger,
+ // centred area below it. The domain is already printed in the page footer,
+ // so it is intentionally not repeated across the heading or QR.
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
- const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
+ const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:2,width:600});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=104,qrX=leftX+(leftW-q)/2,qrY=panelY+panelH-goldH+38;
- page.drawText("E-TICKET",{x:leftX+leftW/2-bold.widthOfTextAtSize("E-TICKET",27)/2,y:panelY+panelH-goldH+154,size:27,font:bold,color:white});
- drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+14,leftW-44,8.5,bold,white);
+ const q=150,qrX=leftX+(leftW-q)/2,qrY=panelY+goldH+18;
+ const heading="E-TICKET",headingSize=24;
+ page.drawText(heading,{x:leftX+leftW/2-bold.widthOfTextAtSize(heading,headingSize)/2,y:panelY+panelH-48,size:headingSize,font:bold,color:white});
  page.drawImage(qr,{x:qrX,y:qrY,width:q,height:q});
  // White attendee information block: generous size, no overlapping decorations.
  const half=leftW/2;
