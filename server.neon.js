@@ -433,6 +433,27 @@ app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  }
  res.json({ok:true,emailSent,emailError,ticketCount:status==="Paid"?tickets.length:0});
 }));
+app.post("/api/admin/orders/:id/resend-tickets",requireAdmin,asyncRoute(async(req,res)=>{
+ const orderId=Number(req.params.id);
+ if(!Number.isSafeInteger(orderId)||orderId<1)return res.status(400).json({error:"Invalid ticket order ID."});
+ const order=(await db.query(`SELECT orders.*,events.title AS event_title,events.event_date,events.venue
+  FROM orders JOIN events ON events.id=orders.event_id WHERE orders.id=$1`,[orderId])).rows[0];
+ if(!order)return res.status(404).json({error:"Ticket order not found."});
+ if(!["Paid","Used"].includes(order.status))return res.status(409).json({error:"Tickets can only be resent for a payment-verified order."});
+ const tickets=(await db.query("SELECT * FROM tickets WHERE order_id=$1 ORDER BY id",[orderId])).rows;
+ if(tickets.length!==Number(order.quantity)||!tickets.length)
+  return res.status(409).json({error:"The issued ticket records do not match the order quantity. No email was sent; please contact technical support."});
+ const attachments=[];
+ for(let i=0;i<tickets.length;i++){
+  const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
+  attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
+ }
+ const emailSent=await sendMail(order.buyer_email,
+  "Your ELCSA Mavhola Parish e-ticket(s) – Resent Order MAV-"+String(order.id).padStart(6,"0"),
+  "Dear "+order.buyer_name+",\\n\\nAs requested, we are resending your existing e-ticket(s). Your original ticket number(s) and QR code(s) remain unchanged.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\nTicket number(s): "+tickets.map(t=>"MAV-T"+String(t.id).padStart(6,"0")).join(", ")+"\\n\\nPlease keep these tickets safe. A ticket that has already been scanned remains used; resending does not reset its entry status.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+ if(!emailSent)return res.status(502).json({error:"The email provider did not confirm delivery. Please check the email service logs and try again."});
+ res.json({ok:true,emailSent:true,ticketCount:tickets.length,buyerEmail:order.buyer_email});
+}));
 app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  const rawToken=String(req.body?.token||"").trim();
  const tokenMatch=rawToken.match(/([a-f0-9]{48})\/?$/i);
