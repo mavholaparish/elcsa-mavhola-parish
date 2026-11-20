@@ -81,7 +81,7 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawText("ADMISSION",{x:cut+44,y:H-72,size:27,font:bold,color:white,rotate:degrees(90)});
  page.drawText("YOUTH LEAGUE",{x:cut+84,y:H-75,size:10,font:bold,color:gold,rotate:degrees(90)});
  page.drawText("SCAN TO VERIFY",{x:cut+44,y:66,size:9,font:bold,color:gold});
- const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\\/$/,"");
+ const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
