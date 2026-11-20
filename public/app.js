@@ -130,7 +130,7 @@ window.removeItem=async(type,id)=>{if(!confirm("Delete this item?"))return;try{a
 loadPublic();
 
 window.updateOrder=async id=>{try{const status=$("#orderStatus"+id).value;const d=await api(`/api/admin/orders/${id}`,{method:"PUT",body:JSON.stringify({status})});toast("Ticket order updated"+(status==="Paid"?(d.emailSent?". Paid ticket emailed to buyer.":". Ticket email not sent; check email configuration."):""));showAdmin("orders");}catch(e){toast(e.message)}};
-window.deleteTicketOrder=async id=>{if(!confirm("Permanently delete this ticket order and all tickets/QR codes issued for it? This cannot be undone."))return;try{await api(`/api/admin/orders/${id}`,{method:"DELETE"});toast("Ticket order and its tickets deleted");showAdmin("orders");}catch(e){toast(e.message)}};
+window.deleteTicketOrder=async id=>{if(!confirm("Permanently delete this ticket order and every ticket/QR code issued for it? This cannot be undone."))return;try{const result=await api(`/api/admin/orders/${id}`,{method:"DELETE"});toast(`Deleted ticket order and ${Number(result.deletedTicketCount||0)} issued ticket(s)`);showAdmin("orders");}catch(e){toast("Could not delete ticket order: "+e.message)}};
 
 
 // Parish online shop: product catalogue, cart, EFT proof upload and hosted card checkout.
