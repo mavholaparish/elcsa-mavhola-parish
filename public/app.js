@@ -6,11 +6,7 @@ const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setT
 async function api(url,opts={}){const headers={...(opts.body instanceof FormData?{}:{"Content-Type":"application/json"}),...(opts.headers||{})};const r=await fetch(url,{...opts,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Something went wrong");return d}
 function open(id){$("#"+id).classList.add("open")}function close(id){$("#"+id).classList.remove("open")}
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>close(b.dataset.close));
-const menuToggle=$("#menuToggle"),primaryNav=$("#primaryNav");
-if(menuToggle&&primaryNav){
- menuToggle.onclick=()=>{const opened=primaryNav.classList.toggle("is-open");menuToggle.setAttribute("aria-expanded",String(opened));};
- primaryNav.querySelectorAll("a").forEach(link=>link.addEventListener("click",()=>{primaryNav.classList.remove("is-open");menuToggle.setAttribute("aria-expanded","false");}));
-}
+// Mobile menu handlers are defined once in index.html to prevent double-toggle conflicts.
 
 $("#adminOpen").onclick=async()=>{
  open("adminModal");
