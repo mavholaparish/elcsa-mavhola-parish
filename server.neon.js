@@ -70,7 +70,7 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
  page.drawCircle({x:W/2,y:H/2,radius:154,color:navy,opacity:0.035});
  page.drawCircle({x:W/2,y:H/2,radius:135,color:pale,opacity:0.03});
- page.drawStar({x:W/2,y:H/2,radius:105,innerRadius:48,rotate:0,color:navy,opacity:0.035});
+ page.drawCircle({x:W/2,y:H/2,radius:105,color:navy,opacity:0.035});
  page.drawText("ELCSA",{x:W/2-38,y:H/2-12,size:20,font:bold,color:navy,opacity:0.04});
  // ticket panels
  page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
