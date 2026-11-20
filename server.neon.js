@@ -50,10 +50,11 @@ async function buildTicketPdf(ticket, order, event) {
  const navy=rgb(0.035,0.12,0.28),blue=rgb(0.10,0.24,0.46),gold=rgb(0.94,0.68,0.12),white=rgb(1,1,1),pale=rgb(0.965,0.976,0.992),muted=rgb(0.34,0.42,0.52);
  const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
  // Modern landscape event ticket: strong header, event details, and detachable QR stub.
- for(const [logoPath,x] of [[path.join(__dirname,"public","elcsa-logo.png"),40],[path.join(__dirname,"public","youth-league-logo.png"),78]]){try{const logo=await pdf.embedPng(fs.readFileSync(logoPath));page.drawImage(logo,{x,y:H-101,width:34,height:34});}catch(e){console.warn("Ticket logo unavailable:",path.basename(logoPath));}}
+
  page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
  page.drawRectangle({x:0,y:H-112,width:W,height:112,color:navy});
  page.drawRectangle({x:0,y:H-119,width:W,height:7,color:gold});
+ for(const [logoPath,x] of [[path.join(__dirname,"public","elcsa-logo.png"),40],[path.join(__dirname,"public","youth-league-logo.png"),78]]){try{const logo=await pdf.embedPng(fs.readFileSync(logoPath));page.drawImage(logo,{x,y:H-101,width:34,height:34});}catch(e){console.warn("Ticket logo unavailable:",path.basename(logoPath));}}
  page.drawText("ELCSA MAVHOLA PARISH",{x:122,y:H-47,size:25,font:bold,color:white});
  page.drawText("YOUTH LEAGUE  /  OFFICIAL ADMISSION",{x:46,y:H-77,size:11,font:bold,color:gold});
  page.drawText("EVENT",{x:46,y:H-153,size:9,font:bold,color:muted});
