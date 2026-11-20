@@ -97,7 +97,7 @@ async function showAdmin(tab){
   c.innerHTML=`<form id="documentCreate" class="admin-form" enctype="multipart/form-data"><h3>Publish a document</h3><p class="wide muted">Upload PDF, Word, Excel, PowerPoint or text files (maximum 25 MB). Visitors can download published documents without signing in.</p><label>Document title<input name="title" placeholder="e.g. Parish Annual Report"></label><label>Choose document<input name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" required></label><label class="wide">Description<input name="description" placeholder="Brief description"></label><button class="btn navy">Publish document</button></form><h3>Published documents</h3>${d.documents.map(doc=>`<p class="manage-row"><span><b>${esc(doc.title)}</b><br><small>${esc(doc.original_name)}</small></span><span><a class="action" href="/documents/${doc.id}/download" target="_blank">Download</a><button class="action" onclick="editDocument(${doc.id})">Edit</button><button class="action reject" onclick="removeItem(&quot;documents&quot;,${doc.id})">Delete</button></span></p>`).join("")||'<p class="muted">No documents published yet.</p>'}`;
   $("#documentCreate").onsubmit=async e=>{e.preventDefault();try{await api("/api/admin/documents",{method:"POST",body:new FormData(e.target)});toast("Document published");showAdmin(tab);loadPublic();}catch(err){toast(err.message)}};
  }
- if(tab==="orders") c.innerHTML=`<section class="admin-form ticket-scanner-panel"><h3>Scan tickets at the entrance</h3><p class="muted">Use your phone camera to scan the QR code on each paid ticket. First scan admits the guest; repeat scans are rejected.</p><div id="ticketReader" class="ticket-reader"></div><div class="decision-row"><button class="btn navy" id="startTicketScanner" type="button">Open phone camera</button><button class="action" id="stopTicketScanner" type="button" disabled>Stop camera</button></div><p id="ticketCheckInResult" class="ticket-scan-result" role="status" aria-live="assertive">Camera scanner ready.</p><details><summary>Enter ticket code manually</summary><form id="ticketCheckIn" class="stack"><label class="wide">Ticket QR token or verification link<input name="token" autocomplete="off" required></label><button class="btn navy">Check in ticket</button></form></details></section><h3>Ticket orders (${d.orders.length})</h3><p class="muted">Review orders and update their status when payment or cancellation has been confirmed.</p><table class="admin-table"><tr><th>Event</th><th>Buyer</th><th>Tickets</th><th>Total</th><th>Status</th><th>Actions</th></tr>${d.orders.map(o=>`<tr><td>${esc(o.event_title)}</td><td>${esc(o.buyer_name)}<br>${esc(o.buyer_email)}</td><td>${o.quantity}</td><td>${money(o.total_cents)}</td><td>${esc(o.status)}</td><td>${o.status==="Used"?'<span class="status used">All tickets scanned</span>':`<select id="orderStatus${o.id}"><option ${o.status==="Pending"?"selected":""}>Pending</option><option ${o.status==="Paid"?"selected":""}>Paid</option><option ${o.status==="Cancelled"?"selected":""}>Cancelled</option></select><button class="action" onclick="updateOrder(${o.id})">Save</button>`}<button class="action reject" type="button" onclick="window.deleteTicketOrder(${o.id})">Delete tickets</button></td></tr>`).join("")}</table>`;
+ if(tab==="orders") c.innerHTML=`<section class="admin-form ticket-scanner-panel"><h3>Scan tickets at the entrance</h3><p class="muted">Use your phone camera to scan the QR code on each paid ticket. First scan admits the guest; repeat scans are rejected.</p><div id="ticketReader" class="ticket-reader"></div><div class="decision-row"><button class="btn navy" id="startTicketScanner" type="button">Open phone camera</button><button class="action" id="stopTicketScanner" type="button" disabled>Stop camera</button></div><p id="ticketCheckInResult" class="ticket-scan-result" role="status" aria-live="assertive">Camera scanner ready.</p><details><summary>Enter ticket code manually</summary><form id="ticketCheckIn" class="stack"><label class="wide">Ticket QR token or verification link<input name="token" autocomplete="off" required></label><button class="btn navy">Check in ticket</button></form></details></section><h3>Ticket orders (${d.orders.length})</h3><p class="muted">Review orders and update their status when payment or cancellation has been confirmed.</p><table class="admin-table"><tr><th>Event</th><th>Buyer</th><th>Tickets</th><th>Total</th><th>Status</th><th>Actions</th></tr>${d.orders.map(o=>`<tr><td>${esc(o.event_title)}</td><td>${esc(o.buyer_name)}<br>${esc(o.buyer_email)}</td><td>${o.quantity}</td><td>${money(o.total_cents)}</td><td>${esc(o.status)}</td><td>${o.status==="Used"?'<span class="status used">All tickets scanned</span>':`<select id="orderStatus${o.id}"><option ${o.status==="Pending"?"selected":""}>Pending</option><option ${o.status==="Paid"?"selected":""}>Paid</option><option ${o.status==="Cancelled"?"selected":""}>Cancelled</option></select><button class="action" onclick="updateOrder(${o.id})">Save</button>`}<button class="action reject" type="button" data-delete-ticket-order="${o.id}">Delete tickets</button></td></tr>`).join("")}</table>`;
    const result=$("#ticketCheckInResult");
    const checkTicket=async raw=>{
     const value=String(raw||"").trim(),match=value.match(/([a-f0-9]{48})(?:\/?(?:\?.*)?)?$/i),token=match?match[1]:value;
@@ -131,6 +131,31 @@ loadPublic();
 
 window.updateOrder=async id=>{try{const status=$("#orderStatus"+id).value;const d=await api(`/api/admin/orders/${id}`,{method:"PUT",body:JSON.stringify({status})});toast("Ticket order updated"+(status==="Paid"?(d.emailSent?". Paid ticket emailed to buyer.":". Ticket email not sent; check email configuration."):""));showAdmin("orders");}catch(e){toast(e.message)}};
 window.deleteTicketOrder=async id=>{if(!confirm("Permanently delete this ticket order and every ticket/QR code issued for it? This cannot be undone."))return;try{const result=await api(`/api/admin/orders/${id}`,{method:"DELETE"});toast(`Deleted ticket order and ${Number(result.deletedTicketCount||0)} issued ticket(s)`);showAdmin("orders");}catch(e){toast("Could not delete ticket order: "+e.message)}};
+
+// One persistent delegated click handler: admin order rows are recreated on each
+// dashboard render, so their controls must not depend on per-render listeners or inline JS.
+document.addEventListener("click",async event=>{
+ const button=event.target instanceof Element?event.target.closest("[data-delete-ticket-order]"):null;
+ if(!button)return;
+ event.preventDefault();
+ event.stopPropagation();
+ if(button.disabled)return;
+ const id=button.getAttribute("data-delete-ticket-order");
+ if(!id)return;
+ if(!window.confirm("Permanently delete this ticket order and every ticket/QR code issued for it? This cannot be undone."))return;
+ button.disabled=true;
+ const label=button.textContent;
+ button.textContent="Deleting…";
+ try{
+  const result=await api("/api/admin/orders/"+encodeURIComponent(id),{method:"DELETE"});
+  toast("Deleted ticket order and "+Number(result.deletedTicketCount||0)+" issued ticket(s).");
+  await showAdmin("orders");
+ }catch(error){
+  toast("Delete failed: "+(error&&error.message?error.message:String(error)));
+  button.disabled=false;
+  button.textContent=label;
+ }
+},true);
 
 
 // Parish online shop: product catalogue, cart, EFT proof upload and hosted card checkout.
