@@ -66,17 +66,19 @@ async function buildTicketPdf(ticket, order, event) {
   while(current>7&&f.widthOfTextAtSize(s,current)>maxWidth)current-=0.5;
   page.drawText(s,{x,y,size:current,font:f,color});
  };
- // Pale page, subtle logo-inspired watermark (circle, star, and Lutheran cross marks).
+ // Pale page with the actual ELCSA parish logo as a subtle background watermark.
  page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
- page.drawCircle({x:W/2,y:H/2,radius:154,color:navy,opacity:0.035});
- page.drawCircle({x:W/2,y:H/2,radius:135,color:pale,opacity:0.03});
- page.drawCircle({x:W/2,y:H/2,radius:105,color:navy,opacity:0.035});
- page.drawText("ELCSA",{x:W/2-38,y:H/2-12,size:20,font:bold,color:navy,opacity:0.04});
+ const logoBytes=fs.readFileSync(path.join(__dirname,"public","elcsa-logo-watermark.png"));
+ const parishLogo=await pdf.embedPng(logoBytes);
+ page.drawImage(parishLogo,{x:W/2-112,y:H/2-112,width:224,height:224,opacity:0.13});
  // ticket panels
  page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
  page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
  const goldH=panelH*0.43,goldY=panelY;
  page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:white});
+ // Repeat the real parish crest faintly inside the white ticket-information panel.
+ // Text is drawn afterwards, so names and ticket details remain crisp and readable.
+ page.drawImage(parishLogo,{x:leftX+(leftW-142)/2,y:goldY+(goldH-142)/2,width:142,height:142,opacity:0.10});
  // QR section: keep the heading in its own top row and give the QR a larger,
  // centred area below it. The domain is already printed in the page footer,
  // so it is intentionally not repeated across the heading or QR.
