@@ -89,8 +89,8 @@ async function buildTicketPdf(ticket, order, event) {
  // White attendee information block: generous size, no overlapping decorations.
  drawFit(title.toUpperCase(),leftX+18,goldY+goldH-28,leftW-36,15,bold,ink);
  drawFit(venue.toUpperCase(),leftX+18,goldY+goldH-47,leftW-36,9,bold,ink);
- drawFit("Ticket ID:",leftX+20,goldY+goldH-76,halfWidth=leftW/2-28,12,bold,ink);
- drawFit(ticketNo,leftX+20,goldY+goldH-92,halfWidth,12,font,ink);
+ drawFit("Ticket ID:",leftX+20,goldY+goldH-76,half-28,12,bold,ink);
+ drawFit(ticketNo,leftX+20,goldY+goldH-92,half-28,12,font,ink);
  const half=leftW/2;
  drawFit("Name:",leftX+half+3,goldY+goldH-76,half-26,12,bold,ink);
  drawFit(buyer,leftX+half+3,goldY+goldH-92,half-26,12,font,ink);
