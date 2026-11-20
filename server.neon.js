@@ -353,7 +353,21 @@ app.get("/documents/:id/download",asyncRoute(async(req,res)=>{
  const item=(await db.query("SELECT filename,original_name,media_type FROM documents WHERE id=$1",[req.params.id])).rows[0];if(!item)return res.status(404).send("Document not found.");
  const object=await storage.getObjectStream(item.filename);res.setHeader("Content-Type",item.media_type||"application/octet-stream");res.setHeader("Content-Disposition",`attachment; filename="${safeName(item.original_name)}"`);object.Body.pipe(res);
 }));
-app.delete("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{const result=await db.query("DELETE FROM orders WHERE id=$1 RETURNING id",[req.params.id]);if(!result.rowCount)return res.status(404).json({error:"Ticket order not found."});res.json({ok:true,deletedOrderId:Number(req.params.id),deletedTickets:"cascade"});}));
+app.delete("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
+ const orderId=Number(req.params.id);
+ if(!Number.isSafeInteger(orderId)||orderId<1)return res.status(400).json({error:"Invalid ticket order ID."});
+ // Explicitly remove ticket rows before the order. This works even on databases
+ // whose existing foreign-key constraint predates ON DELETE CASCADE.
+ const result=await db.transaction(async client=>{
+  const order=await client.query("SELECT id FROM orders WHERE id=$1 FOR UPDATE",[orderId]);
+  if(!order.rowCount)return {notFound:true};
+  const deletedTickets=await client.query("DELETE FROM tickets WHERE order_id=$1",[orderId]);
+  const deletedOrder=await client.query("DELETE FROM orders WHERE id=$1 RETURNING id",[orderId]);
+  return {deletedOrder:deletedOrder.rows[0],deletedTicketCount:deletedTickets.rowCount};
+ });
+ if(result.notFound)return res.status(404).json({error:"Ticket order not found. It may already have been deleted."});
+ res.json({ok:true,deletedOrderId:Number(result.deletedOrder.id),deletedTicketCount:result.deletedTicketCount});
+}));
 app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const status=String(req.body?.status||"");if(!["Pending","Paid","Cancelled"].includes(status))return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
  // Lock the order while checking/changing status and creating tickets. This makes
