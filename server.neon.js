@@ -44,18 +44,21 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
- // Clean reference-style ticket: gold outer field, two navy vertical panels,
- // upper-left QR, lower-left information block, vertical event title at right.
- // Decorative circles/notches are deliberately omitted to keep all text unobstructed.
- const W=600,H=600,outer=34,top=70,bottom=70,gap=12;
+ // Final church-colour ticket: navy/white, logo-inspired watermark, clean QR,
+ // readable attendee details, and domain/event footer around the ticket.
+ const W=600,H=640,outer=34,top=78,bottom=82,gap=12;
  const leftX=outer,leftW=258,rightX=leftX+leftW+gap,rightW=W-outer-rightX;
  const panelY=bottom,panelH=H-top-bottom;
  const pdf=await PDFDocument.create(),page=pdf.addPage([W,H]);
  const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const navy=rgb(0.035,0.19,0.34),gold=rgb(0.98,0.77,0.28),white=rgb(1,1,1),dark=rgb(0.08,0.15,0.23);
+ const navy=rgb(0.04,0.10,0.42),white=rgb(1,1,1),pale=rgb(0.96,0.97,1),ink=rgb(0.04,0.10,0.42);
  const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
  const title=String(event.title||"Parish Event").slice(0,58);
- const date=String(event.event_date||"To be announced").slice(0,45);
+ const rawDate=event.event_date||"";
+ const parsedDate=rawDate?new Date(rawDate):null;
+ const validDate=parsedDate&&!Number.isNaN(parsedDate.getTime());
+ const date=validDate?parsedDate.toLocaleDateString("en-ZA",{timeZone:"Africa/Johannesburg",day:"2-digit",month:"long",year:"numeric"}):"Date to be announced";
+ const time=validDate?parsedDate.toLocaleTimeString("en-ZA",{timeZone:"Africa/Johannesburg",hour:"2-digit",minute:"2-digit",hour12:false}):"Time to be announced";
  const venue=String(event.venue||"Venue to be announced").slice(0,48);
  const buyer=String(order.buyer_name||"Guest").slice(0,48);
  const drawFit=(text,x,y,maxWidth,size,f,color)=>{
@@ -63,41 +66,49 @@ async function buildTicketPdf(ticket, order, event) {
   while(current>7&&f.widthOfTextAtSize(s,current)>maxWidth)current-=0.5;
   page.drawText(s,{x,y,size:current,font:f,color});
  };
- page.drawRectangle({x:0,y:0,width:W,height:H,color:gold});
+ // Pale page, subtle logo-inspired watermark (circle, star, and Lutheran cross marks).
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
+ page.drawCircle({x:W/2,y:H/2,radius:154,color:navy,opacity:0.035});
+ page.drawCircle({x:W/2,y:H/2,radius:135,color:pale,opacity:0.03});
+ page.drawStar({x:W/2,y:H/2,radius:105,innerRadius:48,rotate:0,color:navy,opacity:0.035});
+ page.drawText("ELCSA",{x:W/2-38,y:H/2-12,size:20,font:bold,color:navy,opacity:0.04});
+ // ticket panels
  page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
  page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
- // Lower-left gold block; no decorative shapes overlap the ticket text.
- const goldH=panelH*0.40,goldY=panelY;
- page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:gold});
+ const goldH=panelH*0.43,goldY=panelY;
+ page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:white});
+ // QR in the upper navy section; fixed spacing avoids any overlap with info block.
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=106,qrX=leftX+(leftW-q)/2,qrY=goldY+goldH+92;
+ const q=104,qrX=leftX+(leftW-q)/2,qrY=panelY+panelH-goldH+38;
+ page.drawText("E-TICKET",{x:leftX+leftW/2-bold.widthOfTextAtSize("E-TICKET",27)/2,y:panelY+panelH-goldH+154,size:27,font:bold,color:white});
+ drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+14,leftW-44,8.5,bold,white);
  page.drawImage(qr,{x:qrX,y:qrY,width:q,height:q});
- drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+15,leftW-44,9,bold,white);
- drawFit("E-TICKET",leftX+40,goldY+goldH+22,leftW-72,30,bold,white);
- drawFit("DAY PASS · PARISH EVENT",leftX+42,goldY+goldH+4,leftW-84,10,bold,white);
- // Left-panel information uses non-overlapping rows and conservative font sizes.
- drawFit(title.toUpperCase(),leftX+20,goldY+goldH-40,leftW-40,16,bold,dark);
- drawFit(venue.toUpperCase(),leftX+20,goldY+goldH-58,leftW-40,8.5,bold,dark);
- drawFit(date,leftX+20,goldY+goldH-74,leftW-40,8.5,font,dark);
- const detailY=goldY+24,half=leftW/2;
- drawFit("Ticket ID:",leftX+20,detailY+40,half-28,13,bold,dark);
- drawFit(ticketNo,leftX+20,detailY+27,half-28,13,font,dark);
- drawFit("Name:",leftX+half+3,detailY+40,half-26,13,bold,dark);
- drawFit(buyer,leftX+half+3,detailY+27,half-26,13,font,dark);
- drawFit("Date:",leftX+20,detailY+10,half-28,13,bold,dark);
- drawFit(date,leftX+20,detailY-3,half-28,13,font,dark);
- drawFit("Time:",leftX+half+3,detailY+10,half-26,13,bold,dark);
- drawFit("Admission",leftX+half+3,detailY-3,half-26,13,font,dark);
- // Right-panel vertical title: size constrained to the available panel length.
+ // White attendee information block: generous size, no overlapping decorations.
+ drawFit(title.toUpperCase(),leftX+18,goldY+goldH-28,leftW-36,15,bold,ink);
+ drawFit(venue.toUpperCase(),leftX+18,goldY+goldH-47,leftW-36,9,bold,ink);
+ drawFit("Ticket ID:",leftX+20,goldY+goldH-76,halfWidth=leftW/2-28,12,bold,ink);
+ drawFit(ticketNo,leftX+20,goldY+goldH-92,halfWidth,12,font,ink);
+ const half=leftW/2;
+ drawFit("Name:",leftX+half+3,goldY+goldH-76,half-26,12,bold,ink);
+ drawFit(buyer,leftX+half+3,goldY+goldH-92,half-26,12,font,ink);
+ drawFit("Date:",leftX+20,goldY+goldH-119,half-28,12,bold,ink);
+ drawFit(date,leftX+20,goldY+goldH-135,half-28,12,font,ink);
+ drawFit("Time:",leftX+half+3,goldY+goldH-119,half-26,12,bold,ink);
+ drawFit(time,leftX+half+3,goldY+goldH-135,half-26,12,font,ink);
+ // Right panel: vertically centred event title with font constrained to panel height.
  let verticalSize=22;
- while(verticalSize>12&&bold.widthOfTextAtSize(title.toUpperCase(),verticalSize)>panelH-90)verticalSize-=0.5;
+ while(verticalSize>12&&bold.widthOfTextAtSize(title.toUpperCase(),verticalSize)>panelH-100)verticalSize-=0.5;
  const verticalWidth=bold.widthOfTextAtSize(title.toUpperCase(),verticalSize);
  page.drawText(title.toUpperCase(),{x:rightX+rightW/2-verticalSize/2,y:panelY+panelH/2-verticalWidth/2,size:verticalSize,font:bold,color:white,rotate:degrees(90)});
  const sub="ELCSA MAVHOLA PARISH YOUTH LEAGUE";
- page.drawText(sub,{x:rightX+rightW/2+verticalSize/2+14,y:panelY+panelH/2-bold.widthOfTextAtSize(sub,7)/2,size:7,font:bold,color:gold,rotate:degrees(90)});
+ page.drawText(sub,{x:rightX+rightW/2+verticalSize/2+14,y:panelY+panelH/2-bold.widthOfTextAtSize(sub,7)/2,size:7,font:bold,color:white,rotate:degrees(90)});
+ // Footer outside the two ticket panels, centred on the light page margin.
+ const footer="MAVHOLAPARISH.CO.ZA  •  CONFERENCE GALA DINNER";
+ const footerSize=10;
+ page.drawText(footer,{x:W/2-bold.widthOfTextAtSize(footer,footerSize)/2,y:30,size:footerSize,font:bold,color:navy});
  return Buffer.from(await pdf.save());
 }
 function asyncRoute(fn){return (req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);}
