@@ -44,57 +44,39 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
- const W=842,H=420;
- const pdf=await PDFDocument.create();
- const page=pdf.addPage([W,H]);
- const font=await pdf.embedFont(StandardFonts.Helvetica);
- const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const navy=rgb(0.035,0.13,0.31),gold=rgb(0.96,0.70,0.08),white=rgb(1,1,1),pale=rgb(0.96,0.97,0.99);
+ const W=900,H=420;
+ const pdf=await PDFDocument.create(),page=pdf.addPage([W,H]);
+ const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+ const navy=rgb(0.035,0.12,0.28),blue=rgb(0.10,0.24,0.46),gold=rgb(0.94,0.68,0.12),white=rgb(1,1,1),pale=rgb(0.965,0.976,0.992),muted=rgb(0.34,0.42,0.52);
  const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
- // Use the approved background artwork when it is installed. The vector
- // layout below keeps ticket delivery working if the image asset is absent.
- const artworkPath=path.join(__dirname,"public","gala-dinner-ticket.png");
- if(fs.existsSync(artworkPath)){
-  const image=await pdf.embedPng(fs.readFileSync(artworkPath));
-  page.drawImage(image,{x:0,y:0,width:W,height:H});
- }else{
-  page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
-  page.drawRectangle({x:0,y:H-94,width:W,height:94,color:navy});
-  page.drawRectangle({x:0,y:0,width:18,height:H,color:gold});
-  page.drawText("ELCSA MAVHOLA PARISH",{x:42,y:H-39,size:23,font:bold,color:white});
-  page.drawText("YOUTH LEAGUE  •  OFFICIAL E-TICKET",{x:43,y:H-65,size:11,font:bold,color:gold});
-  page.drawText(String(event.title||"Parish Event").slice(0,48),{x:44,y:H-143,size:25,font:bold,color:navy});
-  page.drawText("ADMIT",{x:44,y:H-185,size:9,font:bold,color:navy});
-  page.drawText(String(order.buyer_name||"").trim().slice(0,48),{x:44,y:H-210,size:17,font:bold,color:navy});
-  page.drawText("DATE",{x:44,y:H-253,size:9,font:bold,color:navy});
-  page.drawText(String(event.event_date||"To be announced").slice(0,42),{x:44,y:H-274,size:12,font:font,color:navy});
-  page.drawText("VENUE",{x:44,y:H-311,size:9,font:bold,color:navy});
-  page.drawText(String(event.venue||"To be announced").slice(0,48),{x:44,y:H-332,size:12,font:font,color:navy});
-  page.drawText(ticketNo,{x:44,y:34,size:14,font:bold,color:navy});
-  page.drawText("Present this ticket at the entrance. Each QR code is valid for one admission.",{x:44,y:17,size:8,font:font,color:navy});
-  page.drawRectangle({x:W-230,y:25,width:190,height:H-50,color:white,borderColor:gold,borderWidth:2});
- }
+ // Modern landscape event ticket: strong header, event details, and detachable QR stub.
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
+ page.drawRectangle({x:0,y:H-112,width:W,height:112,color:navy});
+ page.drawRectangle({x:0,y:H-119,width:W,height:7,color:gold});
+ page.drawText("ELCSA MAVHOLA PARISH",{x:44,y:H-47,size:25,font:bold,color:white});
+ page.drawText("YOUTH LEAGUE  /  OFFICIAL ADMISSION",{x:46,y:H-77,size:11,font:bold,color:gold});
+ page.drawText("EVENT",{x:46,y:H-153,size:9,font:bold,color:muted});
+ page.drawText(String(event.title||"Parish Event").slice(0,54),{x:46,y:H-185,size:24,font:bold,color:navy});
+ page.drawText("ADMIT",{x:46,y:H-225,size:9,font:bold,color:muted});
+ page.drawText(String(order.buyer_name||"Guest").trim().slice(0,48),{x:46,y:H-248,size:16,font:bold,color:navy});
+ page.drawText("DATE & TIME",{x:46,y:H-286,size:9,font:bold,color:muted});
+ page.drawText(String(event.event_date||"To be announced").slice(0,40),{x:46,y:H-308,size:12,font,color:navy});
+ page.drawText("VENUE",{x:46,y:H-342,size:9,font:bold,color:muted});
+ page.drawText(String(event.venue||"To be announced").slice(0,46),{x:46,y:H-363,size:12,font,color:navy});
+ page.drawText(ticketNo,{x:46,y:26,size:15,font:bold,color:navy});
+ page.drawText("ONE TICKET  ·  ONE ENTRY  ·  KEEP THIS TICKET SAFE",{x:170,y:30,size:9,font:bold,color:muted});
+ // Ticket stub on the right with dashed divider.
+ for(let y=18;y<H-18;y+=12)page.drawLine({start:{x:640,y},end:{x:640,y:y+6},thickness:1,color:gold});
+ page.drawRectangle({x:660,y:26,width:212,height:H-52,color:white,borderColor:gold,borderWidth:1.5});
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- if(fs.existsSync(artworkPath)){
-  const qrBox={x:W*0.575,y:H*0.188,width:W*0.132,height:H*0.300};
-  page.drawRectangle({x:qrBox.x,y:qrBox.y,width:qrBox.width,height:qrBox.height,color:white,borderColor:gold,borderWidth:1.2});
-  const qrSize=Math.min(qrBox.width*0.88,qrBox.height*0.79);
-  page.drawImage(qr,{x:qrBox.x+(qrBox.width-qrSize)/2,y:qrBox.y+qrBox.height*0.16,width:qrSize,height:qrSize});
-  const label="SCAN TO VERIFY",labelWidth=bold.widthOfTextAtSize(label,6.5);
-  page.drawText(label,{x:qrBox.x+(qrBox.width-labelWidth)/2,y:qrBox.y+4,size:6.5,font:bold,color:navy});
-  const numberBox={x:W*0.783,y:H*0.101,width:W*0.137,height:H*0.058};
-  page.drawRectangle({x:numberBox.x,y:numberBox.y,width:numberBox.width,height:numberBox.height,color:white});
-  const numberSize=21,numberWidth=bold.widthOfTextAtSize(ticketNo,numberSize);
-  page.drawText(ticketNo,{x:numberBox.x+(numberBox.width-numberWidth)/2,y:numberBox.y+(numberBox.height-numberSize)/2+2,size:numberSize,font:bold,color:navy});
- }else{
-  const qx=W-210,qy=116,qs=150;
-  page.drawImage(qr,{x:qx,y:qy,width:qs,height:qs});
-  const label="SCAN TO VERIFY",labelWidth=bold.widthOfTextAtSize(label,10);
-  page.drawText(label,{x:qx+(qs-labelWidth)/2,y:qy-19,size:10,font:bold,color:navy});
- }
+ const q=174,pageX=679,pageY=111;
+ page.drawImage(qr,{x:pageX,y:pageY,width:q,height:q});
+ page.drawText("SCAN AT THE ENTRANCE",{x:680,y:91,size:9,font:bold,color:navy});
+ page.drawText(ticketNo,{x:680,y:63,size:12,font:bold,color:blue});
+ page.drawText("VALID AFTER PAYMENT",{x:680,y:43,size:8,font:bold,color:muted});
  return Buffer.from(await pdf.save());
 }
 
@@ -340,6 +322,7 @@ app.get("/documents/:id/download",asyncRoute(async(req,res)=>{
  const item=(await db.query("SELECT filename,original_name,media_type FROM documents WHERE id=$1",[req.params.id])).rows[0];if(!item)return res.status(404).send("Document not found.");
  const object=await storage.getObjectStream(item.filename);res.setHeader("Content-Type",item.media_type||"application/octet-stream");res.setHeader("Content-Disposition",`attachment; filename="${safeName(item.original_name)}"`);object.Body.pipe(res);
 }));
+app.delete("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{const result=await db.query("DELETE FROM orders WHERE id=$1 RETURNING id",[req.params.id]);if(!result.rowCount)return res.status(404).json({error:"Ticket order not found."});res.json({ok:true,deletedOrderId:Number(req.params.id),deletedTickets:"cascade"});}));
 app.put("/api/admin/orders/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const status=String(req.body?.status||"");if(!["Pending","Paid","Cancelled"].includes(status))return res.status(400).json({error:"Choose Pending, Paid or Cancelled."});
  // Lock the order while checking/changing status and creating tickets. This makes
@@ -431,7 +414,7 @@ app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
 app.put("/api/admin/settings",requireAdmin,asyncRoute(async(req,res)=>{
  const allowed=["parish_email","parish_phone","parish_address","tagline","eft_account_name","eft_bank_name","eft_account_number","eft_branch_code","eft_reference_instructions","membership_open_date","membership_close_date"];
  const opening=String(req.body?.membership_open_date||"").trim(),closing=String(req.body?.membership_close_date||"").trim();
- const validDate=value=>!value||(/^\\d{4}-\\d{2}-\\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value);
+ const validDate=value=>!value||(/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(value))&&new Date(value+"T00:00:00Z").toISOString().slice(0,10)===value);
  if(!validDate(opening)||!validDate(closing))return res.status(400).json({error:"Enter valid opening and closing dates."});
  if(Boolean(opening)!==Boolean(closing))return res.status(400).json({error:"Please enter both the opening date and closing date, or clear both dates to remove the schedule."});
  if(opening&&closing<opening)return res.status(400).json({error:"The closing date cannot be earlier than the opening date."});
