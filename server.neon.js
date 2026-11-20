@@ -61,6 +61,9 @@ async function buildTicketPdf(ticket, order, event) {
  const time=validDate?parsedDate.toLocaleTimeString("en-ZA",{timeZone:"Africa/Johannesburg",hour:"2-digit",minute:"2-digit",hour12:false}):"Time to be announced";
  const venue=String(event.venue||"Venue to be announced").slice(0,48);
  const buyer=String(order.buyer_name||"Guest").slice(0,48);
+ const quantity=Math.max(1,Number(order.quantity)||1);
+ const unitPriceCents=Number.isFinite(Number(order.total_cents))?Math.round(Number(order.total_cents)/quantity):Number(event.ticket_price_cents)||0;
+ const ticketPrice="R"+(unitPriceCents/100).toFixed(2);
  const drawFit=(text,x,y,maxWidth,size,f,color)=>{
   const s=String(text||"");let current=size;
   while(current>7&&f.widthOfTextAtSize(s,current)>maxWidth)current-=0.5;
@@ -102,6 +105,8 @@ async function buildTicketPdf(ticket, order, event) {
  drawFit(date,leftX+20,goldY+goldH-135,half-28,12,font,ink);
  drawFit("Time:",leftX+half+3,goldY+goldH-119,half-26,12,bold,ink);
  drawFit(time,leftX+half+3,goldY+goldH-135,half-26,12,font,ink);
+ drawFit("Price:",leftX+20,goldY+goldH-160,half-28,12,bold,ink);
+ drawFit(ticketPrice,leftX+20,goldY+goldH-176,half-28,13,bold,ink);
  // Right panel: vertically centred event title with font constrained to panel height.
  let verticalSize=22;
  while(verticalSize>12&&bold.widthOfTextAtSize(title.toUpperCase(),verticalSize)>panelH-100)verticalSize-=0.5;
