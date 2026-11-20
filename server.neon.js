@@ -78,7 +78,7 @@ async function buildTicketPdf(ticket, order, event) {
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=112,qrX=leftX+(leftW-q)/2,qrY=panelY+panelH-goldH-q-62;
+ const q=112,qrX=leftX+(leftW-q)/2,qrY=panelY+goldH+85;
  page.drawImage(qr,{x:qrX,y:qrY,width:q,height:q});
  drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+19,leftW-44,9,bold,white);
  // E-ticket headline and day pass
