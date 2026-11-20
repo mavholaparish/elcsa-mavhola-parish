@@ -450,7 +450,7 @@ app.post("/api/admin/orders/:id/resend-tickets",requireAdmin,asyncRoute(async(re
  }
  const emailSent=await sendMail(order.buyer_email,
   "Your ELCSA Mavhola Parish e-ticket(s) – Resent Order MAV-"+String(order.id).padStart(6,"0"),
-  "Dear "+order.buyer_name+",\\n\\nAs requested, we are resending your existing e-ticket(s). Your original ticket number(s) and QR code(s) remain unchanged.\\n\\nEvent: "+order.event_title+"\\nDate: "+(order.event_date||"To be announced")+"\\nVenue: "+(order.venue||"To be announced")+"\\nTickets: "+order.quantity+"\\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\\nTicket number(s): "+tickets.map(t=>"MAV-T"+String(t.id).padStart(6,"0")).join(", ")+"\\n\\nPlease keep these tickets safe. A ticket that has already been scanned remains used; resending does not reset its entry status.\\n\\nELCSA Mavhola Parish Youth League",attachments);
+  "Dear "+order.buyer_name+",\n\nAs requested, we are resending your existing e-ticket(s). Your original ticket number(s) and QR code(s) remain unchanged.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\nTicket number(s): "+tickets.map(t=>"MAV-T"+String(t.id).padStart(6,"0")).join(", ")+"\n\nPlease keep these tickets safe. A ticket that has already been scanned remains used; resending does not reset its entry status.\n\nELCSA Mavhola Parish Youth League",attachments);
  if(!emailSent)return res.status(502).json({error:"The email provider did not confirm delivery. Please check the email service logs and try again."});
  res.json({ok:true,emailSent:true,ticketCount:tickets.length,buyerEmail:order.buyer_email});
 }));
