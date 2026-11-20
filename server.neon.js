@@ -44,41 +44,53 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
- const W=900,H=420;
+ const W=900,H=500,cut=570;
  const pdf=await PDFDocument.create(),page=pdf.addPage([W,H]);
  const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- const navy=rgb(0.035,0.12,0.28),blue=rgb(0.10,0.24,0.46),gold=rgb(0.94,0.68,0.12),white=rgb(1,1,1),pale=rgb(0.965,0.976,0.992),muted=rgb(0.34,0.42,0.52);
+ // Contemporary split E-ticket: bold color blocks, clear hierarchy, no logos.
+ const ink=rgb(0.035,0.13,0.25),blue=rgb(0.06,0.29,0.48),gold=rgb(0.98,0.73,0.16),cream=rgb(1,0.96,0.84),white=rgb(1,1,1),soft=rgb(0.95,0.97,0.98),muted=rgb(0.38,0.45,0.52);
  const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
- // Modern landscape event ticket: strong header, event details, and detachable QR stub.
-
- page.drawRectangle({x:0,y:0,width:W,height:H,color:pale});
- page.drawRectangle({x:0,y:H-112,width:W,height:112,color:navy});
- page.drawRectangle({x:0,y:H-119,width:W,height:7,color:gold});
- for(const [logoPath,x] of [[path.join(__dirname,"public","elcsa-logo.png"),40],[path.join(__dirname,"public","youth-league-logo.png"),78]]){try{const logo=await pdf.embedPng(fs.readFileSync(logoPath));page.drawImage(logo,{x,y:H-101,width:34,height:34});}catch(e){console.warn("Ticket logo unavailable:",path.basename(logoPath));}}
- page.drawText("ELCSA MAVHOLA PARISH",{x:122,y:H-47,size:25,font:bold,color:white});
- page.drawText("YOUTH LEAGUE  /  OFFICIAL ADMISSION",{x:46,y:H-77,size:11,font:bold,color:gold});
- page.drawText("EVENT",{x:46,y:H-153,size:9,font:bold,color:muted});
- page.drawText(String(event.title||"Parish Event").slice(0,54),{x:46,y:H-185,size:24,font:bold,color:navy});
- page.drawText("ADMIT",{x:46,y:H-225,size:9,font:bold,color:muted});
- page.drawText(String(order.buyer_name||"Guest").trim().slice(0,48),{x:46,y:H-248,size:16,font:bold,color:navy});
- page.drawText("DATE & TIME",{x:46,y:H-286,size:9,font:bold,color:muted});
- page.drawText(String(event.event_date||"To be announced").slice(0,40),{x:46,y:H-308,size:12,font,color:navy});
- page.drawText("VENUE",{x:46,y:H-342,size:9,font:bold,color:muted});
- page.drawText(String(event.venue||"To be announced").slice(0,46),{x:46,y:H-363,size:12,font,color:navy});
- page.drawText(ticketNo,{x:46,y:26,size:15,font:bold,color:navy});
- page.drawText("ONE TICKET  ·  ONE ENTRY  ·  KEEP THIS TICKET SAFE",{x:170,y:30,size:9,font:bold,color:muted});
- // Ticket stub on the right with dashed divider.
- for(let y=18;y<H-18;y+=12)page.drawLine({start:{x:640,y},end:{x:640,y:y+6},thickness:1,color:gold});
- page.drawRectangle({x:660,y:26,width:212,height:H-52,color:white,borderColor:gold,borderWidth:1.5});
- const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
+ const title=String(event.title||"Parish Event").slice(0,58);
+ const date=String(event.event_date||"To be announced").slice(0,45);
+ const venue=String(event.venue||"Venue to be announced").slice(0,48);
+ const buyer=String(order.buyer_name||"Guest").slice(0,48);
+ // Background and panels
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:cream});
+ page.drawRectangle({x:22,y:22,width:cut-30,height:H-44,color:white});
+ page.drawRectangle({x:cut,y:22,width:W-cut-22,height:H-44,color:ink});
+ // Main front panel
+ page.drawRectangle({x:22,y:H-135,width:cut-30,height:113,color:blue});
+ page.drawRectangle({x:22,y:H-143,width:cut-30,height:8,color:gold});
+ page.drawText("ELCSA MAVHOLA PARISH YOUTH LEAGUE",{x:48,y:H-57,size:13,font:bold,color:gold});
+ page.drawText("E-TICKET",{x:48,y:H-103,size:34,font:bold,color:white});
+ page.drawText("EVENT",{x:48,y:H-181,size:10,font:bold,color:muted});
+ page.drawText(title,{x:48,y:H-211,size:23,font:bold,color:ink});
+ page.drawText("DAY PASS",{x:48,y:H-243,size:11,font:bold,color:blue});
+ // Event date/venue bands
+ page.drawRectangle({x:42,y:108,width:cut-70,height:86,color:soft});
+ page.drawText("DATE",{x:58,y:171,size:9,font:bold,color:muted});
+ page.drawText(date,{x:58,y:147,size:13,font:bold,color:ink});
+ page.drawText("VENUE",{x:58,y:126,size:9,font:bold,color:muted});
+ page.drawText(venue,{x:58,y:111,size:11,font,color:ink});
+ // Attendee and ticket detail
+ page.drawText("TICKET HOLDER",{x:48,y:82,size:9,font:bold,color:muted});
+ page.drawText(buyer,{x:48,y:62,size:15,font:bold,color:ink});
+ page.drawText(ticketNo,{x:48,y:36,size:13,font:bold,color:blue});
+ // Detachable stub: QR with clean white inset
+ page.drawRectangle({x:cut+18,y:40,width:W-cut-58,height:H-80,color:blue});
+ page.drawText("ADMISSION",{x:cut+44,y:H-72,size:27,font:bold,color:white,rotate:degrees(90)});
+ page.drawText("YOUTH LEAGUE",{x:cut+84,y:H-75,size:10,font:bold,color:gold,rotate:degrees(90)});
+ page.drawText("SCAN TO VERIFY",{x:cut+44,y:66,size:9,font:bold,color:gold});
+ const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=174,pageX=679,pageY=111;
+ const q=158,pageX=cut+132,pageY=165;
+ page.drawRectangle({x:pageX-8,y:pageY-8,width:q+16,height:q+16,color:white});
  page.drawImage(qr,{x:pageX,y:pageY,width:q,height:q});
- page.drawText("SCAN AT THE ENTRANCE",{x:680,y:91,size:9,font:bold,color:navy});
- page.drawText(ticketNo,{x:680,y:63,size:12,font:bold,color:blue});
- page.drawText("VALID AFTER PAYMENT",{x:680,y:43,size:8,font:bold,color:muted});
+ page.drawText(ticketNo,{x:cut+40,y:42,size:11,font:bold,color:white});
+ // Perforation line
+ for(let y=26;y<H-26;y+=14)page.drawLine({start:{x:cut,y},end:{x:cut,y:y+7},thickness:1,color:gold});
  return Buffer.from(await pdf.save());
 }
 
