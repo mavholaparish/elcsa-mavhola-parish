@@ -270,7 +270,7 @@ app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
   db.query("SELECT * FROM events ORDER BY event_date ASC"),
   db.query("SELECT * FROM media ORDER BY created_at DESC"),
   db.query("SELECT * FROM documents ORDER BY created_at DESC"),
-  db.query("SELECT orders.*,events.title AS event_title FROM orders JOIN events ON events.id=orders.event_id ORDER BY orders.created_at DESC"),
+  db.query("SELECT orders.*,events.title AS event_title,COALESCE((SELECT string_agg('MAV-T'||LPAD(t.id::text,6,'0'), ', ' ORDER BY t.id) FROM tickets t WHERE t.order_id=orders.id),'') AS ticket_numbers,'MAV-'||LPAD(orders.id::text,6,'0') AS order_reference FROM orders JOIN events ON events.id=orders.event_id ORDER BY orders.created_at DESC"),
   settingsObject()
  ]);
  res.json({applications:applications.rows,announcements:announcements.rows,events:events.rows,media:media.rows,documents:documents.rows,orders:orders.rows,settings});
