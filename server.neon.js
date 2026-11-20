@@ -67,30 +67,30 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
  page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
  // Lower-left gold block; no decorative shapes overlap the ticket text.
- const goldH=panelH*0.44,goldY=panelY;
+ const goldH=panelH*0.40,goldY=panelY;
  page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:gold});
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=108,qrX=leftX+(leftW-q)/2,qrY=panelY+panelH-goldH-q-62;
+ const q=106,qrX=leftX+(leftW-q)/2,qrY=goldY+goldH+92;
  page.drawImage(qr,{x:qrX,y:qrY,width:q,height:q});
- drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+18,leftW-44,9,bold,white);
- drawFit("E-TICKET",leftX+40,goldY+goldH+18,leftW-72,30,bold,white);
- drawFit("DAY PASS · PARISH EVENT",leftX+42,goldY+goldH-7,leftW-84,10,bold,white);
+ drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+15,leftW-44,9,bold,white);
+ drawFit("E-TICKET",leftX+40,goldY+goldH+22,leftW-72,30,bold,white);
+ drawFit("DAY PASS · PARISH EVENT",leftX+42,goldY+goldH+4,leftW-84,10,bold,white);
  // Left-panel information uses non-overlapping rows and conservative font sizes.
  drawFit(title.toUpperCase(),leftX+20,goldY+goldH-40,leftW-40,16,bold,dark);
  drawFit(venue.toUpperCase(),leftX+20,goldY+goldH-58,leftW-40,8.5,bold,dark);
  drawFit(date,leftX+20,goldY+goldH-74,leftW-40,8.5,font,dark);
  const detailY=goldY+24,half=leftW/2;
- drawFit("Ticket ID:",leftX+20,detailY+40,half-28,11,bold,dark);
- drawFit(ticketNo,leftX+20,detailY+27,half-28,11,font,dark);
- drawFit("Name:",leftX+half+3,detailY+40,half-26,11,bold,dark);
- drawFit(buyer,leftX+half+3,detailY+27,half-26,11,font,dark);
- drawFit("Date:",leftX+20,detailY+10,half-28,11,bold,dark);
- drawFit(date,leftX+20,detailY-3,half-28,11,font,dark);
- drawFit("Time:",leftX+half+3,detailY+10,half-26,11,bold,dark);
- drawFit("Admission",leftX+half+3,detailY-3,half-26,11,font,dark);
+ drawFit("Ticket ID:",leftX+20,detailY+40,half-28,13,bold,dark);
+ drawFit(ticketNo,leftX+20,detailY+27,half-28,13,font,dark);
+ drawFit("Name:",leftX+half+3,detailY+40,half-26,13,bold,dark);
+ drawFit(buyer,leftX+half+3,detailY+27,half-26,13,font,dark);
+ drawFit("Date:",leftX+20,detailY+10,half-28,13,bold,dark);
+ drawFit(date,leftX+20,detailY-3,half-28,13,font,dark);
+ drawFit("Time:",leftX+half+3,detailY+10,half-26,13,bold,dark);
+ drawFit("Admission",leftX+half+3,detailY-3,half-26,13,font,dark);
  // Right-panel vertical title: size constrained to the available panel length.
  let verticalSize=22;
  while(verticalSize>12&&bold.widthOfTextAtSize(title.toUpperCase(),verticalSize)>panelH-90)verticalSize-=0.5;
