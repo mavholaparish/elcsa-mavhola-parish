@@ -44,56 +44,68 @@ async function sendMail(to,subject,text,attachments=[]){
 }
 
 async function buildTicketPdf(ticket, order, event) {
- const W=900,H=500,cut=570;
+ // Reference recreation: square canvas, gold surround, two tall panels,
+ // QR in the upper-left panel, gold information block at lower-left,
+ // and vertical event title on the right. No logos.
+ const W=600,H=600,outer=34,top=70,bottom=70,gap=12;
+ const leftX=outer,leftW=258,rightX=leftX+leftW+gap,rightW=W-outer-rightX;
+ const panelY=bottom,panelH=H-top-bottom;
  const pdf=await PDFDocument.create(),page=pdf.addPage([W,H]);
  const font=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);
- // Contemporary split E-ticket: bold color blocks, clear hierarchy, no logos.
- const ink=rgb(0.035,0.13,0.25),blue=rgb(0.06,0.29,0.48),gold=rgb(0.98,0.73,0.16),cream=rgb(1,0.96,0.84),white=rgb(1,1,1),soft=rgb(0.95,0.97,0.98),muted=rgb(0.38,0.45,0.52);
+ const navy=rgb(0.035,0.19,0.34),navy2=rgb(0.045,0.25,0.43),gold=rgb(0.98,0.77,0.28),cream=rgb(1,0.84,0.56),white=rgb(1,1,1),dark=rgb(0.08,0.15,0.23);
  const ticketNo="MAV-T"+String(ticket.id).padStart(6,"0");
  const title=String(event.title||"Parish Event").slice(0,58);
  const date=String(event.event_date||"To be announced").slice(0,45);
  const venue=String(event.venue||"Venue to be announced").slice(0,48);
  const buyer=String(order.buyer_name||"Guest").slice(0,48);
- // Background and panels
- page.drawRectangle({x:0,y:0,width:W,height:H,color:cream});
- page.drawRectangle({x:22,y:22,width:cut-30,height:H-44,color:white});
- page.drawRectangle({x:cut,y:22,width:W-cut-22,height:H-44,color:ink});
- // Main front panel
- page.drawRectangle({x:22,y:H-135,width:cut-30,height:113,color:blue});
- page.drawRectangle({x:22,y:H-143,width:cut-30,height:8,color:gold});
- page.drawText("ELCSA MAVHOLA PARISH YOUTH LEAGUE",{x:48,y:H-57,size:13,font:bold,color:gold});
- page.drawText("E-TICKET",{x:48,y:H-103,size:34,font:bold,color:white});
- page.drawText("EVENT",{x:48,y:H-181,size:10,font:bold,color:muted});
- page.drawText(title,{x:48,y:H-211,size:23,font:bold,color:ink});
- page.drawText("DAY PASS",{x:48,y:H-243,size:11,font:bold,color:blue});
- // Event date/venue bands
- page.drawRectangle({x:42,y:108,width:cut-70,height:86,color:soft});
- page.drawText("DATE",{x:58,y:171,size:9,font:bold,color:muted});
- page.drawText(date,{x:58,y:147,size:13,font:bold,color:ink});
- page.drawText("VENUE",{x:58,y:126,size:9,font:bold,color:muted});
- page.drawText(venue,{x:58,y:111,size:11,font,color:ink});
- // Attendee and ticket detail
- page.drawText("TICKET HOLDER",{x:48,y:82,size:9,font:bold,color:muted});
- page.drawText(buyer,{x:48,y:62,size:15,font:bold,color:ink});
- page.drawText(ticketNo,{x:48,y:36,size:13,font:bold,color:blue});
- // Detachable stub: QR with clean white inset
- page.drawRectangle({x:cut+18,y:40,width:W-cut-58,height:H-80,color:blue});
- page.drawText("ADMISSION",{x:cut+44,y:H-72,size:27,font:bold,color:white,rotate:degrees(90)});
- page.drawText("YOUTH LEAGUE",{x:cut+84,y:H-75,size:10,font:bold,color:gold,rotate:degrees(90)});
- page.drawText("SCAN TO VERIFY",{x:cut+44,y:66,size:9,font:bold,color:gold});
+ const drawFit=(text,x,y,maxWidth,size,f,color)=>{
+  const s=String(text||"");
+  let current=size;
+  while(current>7&&f.widthOfTextAtSize(s,current)>maxWidth)current-=0.5;
+  page.drawText(s,{x,y,size:current,font:f,color});
+ };
+ // Gold outside background and two ticket panels
+ page.drawRectangle({x:0,y:0,width:W,height:H,color:gold});
+ page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
+ page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
+ // Subtle pattern on right panel (abstract circles, not logos)
+ for(let i=0;i<9;i++)page.drawCircle({x:rightX+32+(i%3)*68,y:panelY+62+Math.floor(i/3)*104,radius:26,color:navy2,opacity:0.20});
+ // Left panel: upper navy QR section, lower gold information section
+ const goldH=panelH*0.39, goldY=panelY;
+ page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:gold});
+ // QR code sits in the same upper-left location as reference, centered in upper panel
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
  const qrData=await QRCode.toDataURL(verifyUrl,{errorCorrectionLevel:"H",margin:1,width:360});
  const qr=await pdf.embedPng(Buffer.from(qrData.split(",")[1],"base64"));
- const q=158,pageX=cut+132,pageY=165;
- page.drawRectangle({x:pageX-8,y:pageY-8,width:q+16,height:q+16,color:white});
- page.drawImage(qr,{x:pageX,y:pageY,width:q,height:q});
- page.drawText(ticketNo,{x:cut+40,y:42,size:11,font:bold,color:white});
- // Perforation line
- for(let y=26;y<H-26;y+=14)page.drawLine({start:{x:cut,y},end:{x:cut,y:y+7},thickness:1,color:gold});
+ const q=112,qrX=leftX+(leftW-q)/2,qrY=panelY+panelH-goldH-q-62;
+ page.drawImage(qr,{x:qrX,y:qrY,width:q,height:q});
+ drawFit("MAVHOLAPARISH.CO.ZA",leftX+22,qrY+q+19,leftW-44,9,bold,white);
+ // E-ticket headline and day pass
+ drawFit("E-TICKET",leftX+40,goldY+goldH+16,leftW-72,32,bold,white);
+ drawFit("DAY PASS · PARISH EVENT",leftX+42,goldY+goldH-7,leftW-84,11,bold,white);
+ // Gold lower section event title, subtitle/venue and ticket details
+ drawFit(title.toUpperCase(),leftX+22,goldY+goldH-42,leftW-44,17,bold,dark);
+ drawFit(venue.toUpperCase(),leftX+22,goldY+goldH-62,leftW-44,9,bold,dark);
+ drawFit(date,leftX+22,goldY+goldH-82,leftW-44,9,font,dark);
+ const detailY=goldY+24;
+ drawFit("Ticket ID :",leftX+22,detailY+38,92,9,bold,dark);
+ drawFit(ticketNo,leftX+22,detailY+24,110,9,font,dark);
+ drawFit("Name :",leftX+leftW/2+5,detailY+38,leftW/2-26,9,bold,dark);
+ drawFit(buyer,leftX+leftW/2+5,detailY+24,leftW/2-26,9,font,dark);
+ drawFit("Date :",leftX+22,detailY+8,92,9,bold,dark);
+ drawFit(date,leftX+22,detailY-5,110,9,font,dark);
+ drawFit("Time :",leftX+leftW/2+5,detailY+8,leftW/2-26,9,bold,dark);
+ drawFit("Admission",leftX+leftW/2+5,detailY-5,leftW/2-26,9,font,dark);
+ // Right panel: vertically oriented event title and vertical subtitle, as in reference
+ const verticalTitle=title.toUpperCase().slice(0,34);
+ page.drawText(verticalTitle,{x:rightX+rightW/2-12,y:panelY+100,size:28,font:bold,color:white,rotate:degrees(90)});
+ page.drawText("ELCSA MAVHOLA PARISH YOUTH LEAGUE",{x:rightX+rightW/2+24,y:panelY+154,size:8,font:bold,color:gold,rotate:degrees(90)});
+ // Gold side-notch accents at the panel midpoint
+ const notchY=panelY+panelH*0.42;
+ for(const x of [leftX,leftX+leftW,rightX,rightX+rightW])page.drawCircle({x,y:notchY,radius:7,color:gold});
  return Buffer.from(await pdf.save());
 }
-
 function asyncRoute(fn){return (req,res,next)=>Promise.resolve(fn(req,res,next)).catch(next);}
 function fileFilter(allowed){return (req,file,cb)=>cb(null,allowed(file));}
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*1024,files:1},
