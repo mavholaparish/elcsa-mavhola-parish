@@ -67,7 +67,7 @@ async function buildTicketPdf(ticket, order, event) {
  page.drawRectangle({x:leftX,y:panelY,width:leftW,height:panelH,color:navy});
  page.drawRectangle({x:rightX,y:panelY,width:rightW,height:panelH,color:navy});
  // Lower-left gold block; no decorative shapes overlap the ticket text.
- const goldH=panelH*0.40,goldY=panelY;
+ const goldH=panelH*0.44,goldY=panelY;
  page.drawRectangle({x:leftX,y:goldY,width:leftW,height:goldH,color:gold});
  const base=(process.env.PUBLIC_BASE_URL||"https://mavholaparish.co.za").replace(/\/$/,"");
  const verifyUrl=base+"/ticket/verify/"+encodeURIComponent(ticket.token);
@@ -83,14 +83,14 @@ async function buildTicketPdf(ticket, order, event) {
  drawFit(venue.toUpperCase(),leftX+20,goldY+goldH-58,leftW-40,8.5,bold,dark);
  drawFit(date,leftX+20,goldY+goldH-74,leftW-40,8.5,font,dark);
  const detailY=goldY+24,half=leftW/2;
- drawFit("Ticket ID:",leftX+20,detailY+40,half-28,8.5,bold,dark);
- drawFit(ticketNo,leftX+20,detailY+27,half-28,8.5,font,dark);
- drawFit("Name:",leftX+half+3,detailY+40,half-26,8.5,bold,dark);
- drawFit(buyer,leftX+half+3,detailY+27,half-26,8.5,font,dark);
- drawFit("Date:",leftX+20,detailY+10,half-28,8.5,bold,dark);
- drawFit(date,leftX+20,detailY-3,half-28,8.5,font,dark);
- drawFit("Time:",leftX+half+3,detailY+10,half-26,8.5,bold,dark);
- drawFit("Admission",leftX+half+3,detailY-3,half-26,8.5,font,dark);
+ drawFit("Ticket ID:",leftX+20,detailY+40,half-28,11,bold,dark);
+ drawFit(ticketNo,leftX+20,detailY+27,half-28,11,font,dark);
+ drawFit("Name:",leftX+half+3,detailY+40,half-26,11,bold,dark);
+ drawFit(buyer,leftX+half+3,detailY+27,half-26,11,font,dark);
+ drawFit("Date:",leftX+20,detailY+10,half-28,11,bold,dark);
+ drawFit(date,leftX+20,detailY-3,half-28,11,font,dark);
+ drawFit("Time:",leftX+half+3,detailY+10,half-26,11,bold,dark);
+ drawFit("Admission",leftX+half+3,detailY-3,half-26,11,font,dark);
  // Right-panel vertical title: size constrained to the available panel length.
  let verticalSize=22;
  while(verticalSize>12&&bold.widthOfTextAtSize(title.toUpperCase(),verticalSize)>panelH-90)verticalSize-=0.5;
