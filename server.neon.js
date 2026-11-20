@@ -33,7 +33,7 @@ async function sendMail(to,subject,text,attachments=[]){
  if(process.env.RESEND_API_KEY){
   const response=await fetch("https://api.resend.com/emails",{method:"POST",
    headers:{Authorization:"Bearer "+process.env.RESEND_API_KEY,"Content-Type":"application/json"},
-   body:JSON.stringify({from:process.env.MAIL_FROM||"ELCSA Mavhola Parish <onboarding@resend.dev>",to:[to],subject,text,
+   body:JSON.stringify({from:process.env.MAIL_FROM||"ELCSA Mavhola Parish <tickets@send.mavholaparish.co.za>",to:[to],subject,text,
     attachments:attachments.map(a=>({filename:a.filename,content:a.content.toString("base64")}))})});
   if(!response.ok)throw new Error("Resend email error: "+response.status+" "+await response.text());
   return true;
@@ -448,11 +448,17 @@ app.post("/api/admin/orders/:id/resend-tickets",requireAdmin,asyncRoute(async(re
   const content=await buildTicketPdf({...tickets[i],position:i+1},order,{title:order.event_title,event_date:order.event_date,venue:order.venue});
   attachments.push({filename:"MAV-T"+String(tickets[i].id).padStart(6,"0")+".pdf",content});
  }
- const emailSent=await sendMail(order.buyer_email,
-  "Your ELCSA Mavhola Parish e-ticket(s) – Resent Order MAV-"+String(order.id).padStart(6,"0"),
-  "Dear "+order.buyer_name+",\n\nAs requested, we are resending your existing e-ticket(s). Your original ticket number(s) and QR code(s) remain unchanged.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nOrder reference: MAV-"+String(order.id).padStart(6,"0")+"\nTicket number(s): "+tickets.map(t=>"MAV-T"+String(t.id).padStart(6,"0")).join(", ")+"\n\nPlease keep these tickets safe. A ticket that has already been scanned remains used; resending does not reset its entry status.\n\nELCSA Mavhola Parish Youth League",attachments);
- if(!emailSent)return res.status(502).json({error:"The email provider did not confirm delivery. Please check the email service logs and try again."});
- res.json({ok:true,emailSent:true,ticketCount:tickets.length,buyerEmail:order.buyer_email});
+ const reference="MAV-"+String(order.id).padStart(6,"0");
+ try{
+  const emailSent=await sendMail(order.buyer_email,
+   "Your ELCSA Mavhola Parish e-ticket(s) – "+reference,
+   "Dear "+order.buyer_name+",\n\nAs requested, we are resending your existing e-ticket(s). Your original ticket number(s) and QR code(s) remain unchanged.\n\nEvent: "+order.event_title+"\nDate: "+(order.event_date||"To be announced")+"\nVenue: "+(order.venue||"To be announced")+"\nTickets: "+order.quantity+"\nOrder number / EFT payment reference: "+reference+"\nTicket number(s): "+tickets.map(t=>"MAV-T"+String(t.id).padStart(6,"0")).join(", ")+"\n\nPlease keep these tickets safe. A ticket that has already been scanned remains used; resending does not reset its entry status.\n\nELCSA Mavhola Parish Youth League",attachments);
+  if(!emailSent)return res.status(503).json({error:"Email is not configured on the server. Check RESEND_API_KEY or SMTP settings."});
+  res.json({ok:true,emailSent:true,ticketCount:tickets.length,buyerEmail:order.buyer_email,orderReference:reference});
+ }catch(error){
+  console.error("Admin resend ticket email failed for order "+orderId+":",error?.stack||error);
+  return res.status(502).json({error:"Ticket resend failed: "+String(error?.message||"email provider error").slice(0,500)});
+ }
 }));
 app.post("/api/admin/tickets/check-in",requireAdmin,asyncRoute(async(req,res)=>{
  const rawToken=String(req.body?.token||"").trim();
