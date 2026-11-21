@@ -99,3 +99,11 @@ main>section[hidden]{display:none!important}
 .youth-page .youth-logo img{width:100%!important;height:100%!important;object-fit:contain!important}
 .youth-page .shop-back-link{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;margin:0 0 12px;border:1px solid #fff;border-radius:5px;background:#fff;color:#092b67!important;font-weight:700;text-decoration:none!important;box-shadow:0 2px 8px #0002}
 .youth-page .shop-back-link:hover{background:#f2b323;color:#092b67!important}
+
+/* Youth League page layout: separate logo from text, with a consistent home link. */
+.youth-page{align-items:center!important;gap:32px!important}
+.youth-page .youth-logo{width:clamp(110px,13vw,145px)!important;height:clamp(110px,13vw,145px)!important;flex:0 0 auto!important;margin:0!important}
+.youth-page .youth-content{min-width:0;flex:1}
+.youth-page .shop-back-link{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;margin:0 0 18px;border:0;border-radius:5px;background:var(--gold);color:#152746!important;font-size:13px;font-weight:700;text-decoration:none!important;box-shadow:none}
+.youth-page .shop-back-link:hover{background:#ffd36b;color:#152746!important}
+@media(max-width:560px){.youth-page{align-items:flex-start!important;flex-direction:column!important;gap:20px!important}.youth-page .youth-logo{width:110px!important;height:110px!important}}
