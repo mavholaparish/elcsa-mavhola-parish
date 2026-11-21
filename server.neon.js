@@ -215,6 +215,11 @@ async function bootstrap(){
   sid VARCHAR NOT NULL PRIMARY KEY, sess JSON NOT NULL, expire TIMESTAMP(6) NOT NULL
  )`);
  await db.query("CREATE INDEX IF NOT EXISTS user_sessions_expire_idx ON user_sessions(expire)");
+ await db.query(`CREATE TABLE IF NOT EXISTS admin_password_resets (
+  id BIGSERIAL PRIMARY KEY, admin_id BIGINT NOT NULL REFERENCES admins(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE, expires_at TIMESTAMPTZ NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+ )`);
+ await db.query("CREATE INDEX IF NOT EXISTS admin_password_resets_expiry_idx ON admin_password_resets(expires_at)");
  if(process.env.ADMIN_EMAIL&&process.env.ADMIN_PASSWORD){
   const email=process.env.ADMIN_EMAIL.trim().toLowerCase();
   const exists=await db.query("SELECT id FROM admins WHERE LOWER(email)=LOWER($1)",[email]);
@@ -266,6 +271,44 @@ app.post("/api/admin/login",adminLoginLimiter,asyncRoute(async(req,res)=>{
   req.session.save(saveErr=>saveErr?res.status(500).json({error:"Could not start your admin session. Please try again."}):res.json({ok:true,email:admin.email}));
  });
 }));
+
+const passwordResetRequestLimiter=rateLimit({windowMs:60*60*1000,max:5,standardHeaders:true,legacyHeaders:false,message:{error:"Too many reset requests. Please wait before trying again."}});
+const passwordResetSubmitLimiter=rateLimit({windowMs:60*60*1000,max:10,standardHeaders:true,legacyHeaders:false});
+app.post("/api/admin/forgot-password",passwordResetRequestLimiter,asyncRoute(async(req,res)=>{
+ const email=String(req.body.email||"").trim().toLowerCase();
+ const genericMessage="If that email address belongs to an administrator, a password reset link will be sent shortly.";
+ if(!email||email.length>254)return res.json({ok:true,message:genericMessage});
+ const found=await db.query("SELECT id,email FROM admins WHERE LOWER(email)=LOWER($1)",[email]);
+ if(found.rowCount){
+  const admin=found.rows[0],rawToken=crypto.randomBytes(32).toString("hex");
+  const tokenHash=crypto.createHash("sha256").update(rawToken).digest("hex");
+  await db.query("DELETE FROM admin_password_resets WHERE admin_id=$1 OR expires_at<NOW()",[admin.id]);
+  await db.query("INSERT INTO admin_password_resets(admin_id,token_hash,expires_at) VALUES($1,$2,NOW()+INTERVAL '30 minutes')",[admin.id,tokenHash]);
+  const resetUrl=new URL("/",`${req.protocol}://${req.get("host")}`);
+  resetUrl.searchParams.set("adminReset",rawToken);
+  try{
+   const sent=await sendMail(admin.email,"ELCSA Mavhola Parish – administrator password reset",
+    `A request was made to reset the administrator password for your ELCSA Mavhola Parish website account.\n\nUse this secure link within 30 minutes to choose a new password:\n${resetUrl.toString()}\n\nIf you did not request this, you can ignore this email. Your password will not change.\n\nELCSA Mavhola Parish`);
+   if(!sent)console.error("Admin password reset email could not be sent: no email transport is configured.");
+  }catch(error){console.error("Admin password reset email failed:",error?.message||error);}
+ }
+ res.json({ok:true,message:genericMessage});
+}));
+app.post("/api/admin/reset-password",passwordResetSubmitLimiter,asyncRoute(async(req,res)=>{
+ const token=String(req.body.token||""),password=String(req.body.password||"");
+ if(!/^[a-f0-9]{64}$/i.test(token))return res.status(400).json({error:"This reset link is invalid or has expired. Please request a new one."});
+ if(password.length<10||password.length>200)return res.status(400).json({error:"Your new password must be between 10 and 200 characters."});
+ const tokenHash=crypto.createHash("sha256").update(token).digest("hex");
+ const found=await db.query("SELECT id FROM admin_password_resets WHERE token_hash=$1 AND expires_at>NOW()",[tokenHash]);
+ if(!found.rowCount)return res.status(400).json({error:"This reset link is invalid or has expired. Please request a new one."});
+ const passwordHash=await bcrypt.hash(password,12);
+ const updated=await db.query(`WITH consumed AS (
+  DELETE FROM admin_password_resets WHERE id=$2 AND expires_at>NOW() RETURNING admin_id
+ ) UPDATE admins SET password_hash=$1 WHERE id=(SELECT admin_id FROM consumed) RETURNING id`,[passwordHash,found.rows[0].id]);
+ if(!updated.rowCount)return res.status(400).json({error:"This reset link is invalid or has expired. Please request a new one."});
+ res.json({ok:true,message:"Your password has been reset successfully. You can now sign in."});
+}));
+
 app.post("/api/admin/logout",(req,res)=>req.session.destroy(()=>res.json({ok:true})));
 app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
 app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
