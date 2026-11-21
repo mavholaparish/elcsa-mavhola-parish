@@ -347,3 +347,7 @@ main>section[hidden]{display:none!important}
  #adminContent .app-details{grid-template-columns:1fr!important;gap:4px!important}
  #adminContent .app-details dd{margin-bottom:7px!important}
 }
+
+/* Admin account recovery links */
+#adminLoginView .text-link,#forgotPasswordView .text-link,#resetPasswordView .text-link{justify-self:start;border:0;background:transparent;color:var(--blue);padding:4px 0;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+#adminLoginView .text-link:hover,#forgotPasswordView .text-link:hover,#resetPasswordView .text-link:hover{color:var(--navy)}
