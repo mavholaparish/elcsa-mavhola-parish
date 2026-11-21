@@ -217,3 +217,6 @@ main>section[hidden]{display:none!important}
 .announcement-empty h3{margin:0 0 6px;color:#193453;font-size:15px}
 .announcement-empty p{margin:0;font-size:13px;line-height:1.6}
 @media(max-width:560px){#announcements .section-heading{flex-wrap:nowrap;align-items:center;gap:8px;margin-bottom:18px}#announcements .section-heading>div{flex:1;min-width:0}#announcements .section-heading h2{font-size:clamp(20px,5.8vw,25px)!important;line-height:1.1!important;white-space:nowrap!important;margin:6px 0 0!important}#announcements .section-heading>p{display:none}.announcement-list{gap:10px}.announcement-item{padding:15px 14px!important;border-radius:10px!important}.announcement-item h3{font-size:15px!important}.announcement-item p{font-size:12px!important;line-height:1.65!important}.announcement-topline time{font-size:10px}}
+
+/* Keep the Documents & downloads title together on narrow screens */
+@media(max-width:560px){#documents .section-heading{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;margin-bottom:18px!important}#documents .section-heading>div{flex:1;min-width:0}#documents .section-heading h2{white-space:nowrap!important;font-size:clamp(19px,5.6vw,24px)!important;line-height:1.1!important;letter-spacing:-.03em!important;margin:6px 0 0!important}#documents .section-heading>p{display:none!important}}
