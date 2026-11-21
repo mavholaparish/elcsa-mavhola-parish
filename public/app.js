@@ -225,16 +225,19 @@ window.removeShopProduct=async id=>{if(!confirm("Remove this product from the pu
 window.updateShopOrder=async(id,status)=>{try{const d=await api("/api/shop/admin/orders/"+id,{method:"PUT",body:JSON.stringify({status})});toast(status==="Paid"?(d.emailSent?"Payment confirmed and buyer emailed.":"Payment confirmed; buyer email could not be sent."):"Order cancelled.");showAdmin("shop");}catch(e){toast(e.message);}};
 const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPayment")){const n=$("#shopMessage");if(n)n.textContent=shopParams.get("shopPayment")==="success"?"Thank you. PayFast is processing your payment confirmation; the order will update when the secure payment notification is verified.":"Payment was cancelled. Your cart is still available if you wish to try again.";}
 loadShop();renderShopCart();
- // Dedicated storefront view: the Shop navigation opens a focused catalogue page.
- const shopOnly=new URLSearchParams(location.search).get("page")==="shop";
- if(shopOnly){
-  document.querySelectorAll("main>section").forEach(section=>{if(section.id!=="shop")section.hidden=true;});
-  const shopSection=$("#shop");
-  shopSection.classList.add("shop-page");
-  const heading=shopSection.querySelector(".section-heading");
-  if(heading){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
-  const title=shopSection.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";
-  document.title="Parish Shop | ELCSA Mavhola Parish";
+ // Dedicated section views: Shop and Youth League open independently.
+ const page=new URLSearchParams(location.search).get("page");
+ if(page==="shop"||page==="youth"){
+  const targetId=page==="shop"?"shop":"youth";
+  document.querySelectorAll("main>section").forEach(section=>{if(section.id!==targetId)section.hidden=true;});
+  const target=$("#"+targetId);
+  if(target){
+   if(page==="shop")target.classList.add("shop-page");
+   const heading=target.querySelector(".section-heading")||target.querySelector("div");
+   if(heading){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
+   if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
+   else document.title="Youth League | ELCSA Mavhola Parish";
+  }
   window.scrollTo(0,0);
  }
 
