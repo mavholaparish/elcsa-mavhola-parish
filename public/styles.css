@@ -111,3 +111,10 @@ main>section[hidden]{display:none!important}
 /* Compact Youth League back link positioned above the logo. */
 .youth-page .youth-content{display:flex;flex-direction:column;align-items:flex-start}
 .youth-page .shop-back-link{font-size:11px!important;padding:6px 10px!important;margin:0 0 14px!important;border-radius:4px!important;align-self:flex-start}
+
+/* Youth page: back-home link sits above the logo, not beside/under it. */
+.youth-page{display:grid!important;grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:30px;row-gap:14px}
+.youth-page>.shop-back-link{grid-column:1/-1;grid-row:1;justify-self:start;margin:0 0 4px!important;font-size:11px!important;padding:6px 10px!important}
+.youth-page>.youth-logo{grid-column:1;grid-row:2;margin:0!important}
+.youth-page>.youth-content{grid-column:2;grid-row:2;min-width:0}
+@media(max-width:560px){.youth-page{grid-template-columns:1fr!important;row-gap:16px!important}.youth-page>.shop-back-link{grid-column:1;grid-row:1}.youth-page>.youth-logo{grid-column:1;grid-row:2}.youth-page>.youth-content{grid-column:1;grid-row:3}}
