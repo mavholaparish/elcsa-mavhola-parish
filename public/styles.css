@@ -226,3 +226,8 @@ main>section[hidden]{display:none!important}
 #announcementsList .announcement-list{display:flex!important;flex-direction:row!important;gap:12px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;scroll-behavior:smooth!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;touch-action:pan-x!important;padding:0 0 4px!important}
 #announcementsList .announcement-list::-webkit-scrollbar{display:none!important}
 #announcementsList .announcement-item{flex:0 0 100%!important;width:100%!important;min-width:100%!important;scroll-snap-align:start!important;scroll-snap-stop:always!important}
+
+/* Swipeable, auto-advancing parish events carousel */
+#eventsList{display:flex!important;flex-direction:row!important;gap:12px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;scroll-behavior:smooth!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;touch-action:pan-x!important;padding-bottom:5px!important}
+#eventsList::-webkit-scrollbar{display:none!important}
+#eventsList .event-slide{flex:0 0 100%!important;width:100%!important;min-width:100%!important;scroll-snap-align:start!important;scroll-snap-stop:always!important}
