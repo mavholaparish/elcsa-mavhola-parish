@@ -82,3 +82,6 @@
 /* Hide merchandise on the parish landing page; reveal only on the dedicated Shop page. */
 .shop-section{display:none!important}
 .shop-section.shop-page{display:block!important}
+
+/* Dedicated page navigation must hide every other main section even when a section has display styling. */
+main>section[hidden]{display:none!important}
