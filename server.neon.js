@@ -18,10 +18,14 @@ const storage=require("./storage");
 const {validateUpload}=require("./upload-validation");
 
 const app=express();
+// Bind the Render web-service port immediately. Express allows routes and middleware
+// to be registered after listen(), so slow route setup cannot trigger a port-scan timeout.
+const PORT=process.env.PORT||3000;
+const server=app.listen(PORT,"0.0.0.0",()=>console.log("ELCSA Mavhola Parish website listening on "+PORT));
+server.on("error",error=>{console.error("HTTP server failed to bind:",error);process.exit(1);});
 let startupReady=false;
 let startupFailure=null;
 app.set("trust proxy",1);
-const PORT=process.env.PORT||3000;
 const stripe=process.env.STRIPE_SECRET_KEY?new Stripe(process.env.STRIPE_SECRET_KEY):null;
 const mailer=process.env.SMTP_HOST?nodemailer.createTransport({
  host:process.env.SMTP_HOST,port:Number(process.env.SMTP_PORT||587),
@@ -578,7 +582,6 @@ app.get("/healthz",asyncRoute(async(req,res)=>{
 }));
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.use((err,req,res,next)=>{console.error("Request failed:",err.message);if(res.headersSent)return next(err);res.status(err.code==="LIMIT_FILE_SIZE"?413:500).json({error:err.code==="LIMIT_FILE_SIZE"?"The uploaded file is too large.":"The request could not be completed. Please try again."});});
-const server=app.listen(PORT,()=>console.log("ELCSA Mavhola Parish website listening on "+PORT));
 // Serve the public website immediately. Database-backed API routes remain gated
 // until schema and private object storage checks have completed successfully.
 bootstrap().then(()=>{
