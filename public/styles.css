@@ -231,3 +231,10 @@ main>section[hidden]{display:none!important}
 #eventsList{display:flex!important;flex-direction:row!important;gap:12px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;scroll-behavior:smooth!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;touch-action:pan-x!important;padding-bottom:5px!important}
 #eventsList::-webkit-scrollbar{display:none!important}
 #eventsList .event-slide{flex:0 0 100%!important;width:100%!important;min-width:100%!important;scroll-snap-align:start!important;scroll-snap-stop:always!important}
+
+/* Documents carousel: two document cards per viewport slide */
+#documentsList{overflow:hidden!important}
+#documentsList .documents-list{display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;gap:12px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;scroll-behavior:smooth!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;touch-action:pan-x!important;padding:0 0 4px!important}
+#documentsList .documents-list::-webkit-scrollbar{display:none!important}
+#documentsList .document-row{flex:0 0 calc((100% - 12px)/2)!important;width:calc((100% - 12px)/2)!important;min-width:calc((100% - 12px)/2)!important;scroll-snap-align:start!important;scroll-snap-stop:always!important}
+@media(max-width:560px){#documentsList .document-row{flex-basis:calc((100% - 10px)/2)!important;width:calc((100% - 10px)/2)!important;min-width:calc((100% - 10px)/2)!important;flex-direction:column!important;align-items:flex-start!important}#documentsList .document-info{width:100%!important}#documentsList .document-download{align-self:flex-start!important}}
