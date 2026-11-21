@@ -74,6 +74,24 @@ async function loadPublic(){try{const d=await api("/api/public");
  $("#galleryList").innerHTML=d.media.length?`<div class="gallery-carousel"><div class="gallery-slides">${d.media.map((m,index)=>`<article class="gallery-card gallery-slide${index===0?" active":""}" data-slide="${index}"><div class="gallery-media">${m.media_type?.startsWith("video/")?`<video controls preload="metadata" src="/uploads/${encodeURIComponent(m.filename)}"></video><span class="gallery-type">VIDEO</span>`:`<img loading="lazy" src="/uploads/${encodeURIComponent(m.filename)}" alt="${esc(m.title)}"><span class="gallery-type">PHOTO</span>`}</div><div class="gallery-caption"><h3>${esc(m.title)}</h3>${m.description?`<p>${esc(m.description)}</p>`:""}</div></article>`).join("")}</div><div class="gallery-controls"><button type="button" class="gallery-arrow" data-gallery-prev aria-label="Previous photo">‹</button><div class="gallery-indicators">${d.media.map((m,index)=>`<button type="button" class="gallery-indicator${index===0?" active":""}" data-gallery-index="${index}" aria-label="Show slide ${index+1}"></button>`).join("")}</div><button type="button" class="gallery-arrow" data-gallery-next aria-label="Next photo">›</button><span class="gallery-count"><b>1</b> / ${d.media.length}</span></div></div>`:'<div class="gallery-empty"><div class="gallery-empty-icon">✦</div><h3>Parish memories are coming soon</h3><p>Photos and videos of worship, fellowship, celebrations and service will be shared here.</p></div>';
  if(d.media.length){const carousel=$("#galleryList"),slides=[...carousel.querySelectorAll(".gallery-slide")],dots=[...carousel.querySelectorAll(".gallery-indicator")],count=carousel.querySelector(".gallery-count b");let current=0;const showSlide=(n)=>{current=(n+slides.length)%slides.length;slides.forEach((slide,i)=>slide.classList.toggle("active",i===current));dots.forEach((dot,i)=>dot.classList.toggle("active",i===current));count.textContent=String(current+1);};carousel.querySelector("[data-gallery-prev]").onclick=()=>showSlide(current-1);carousel.querySelector("[data-gallery-next]").onclick=()=>showSlide(current+1);dots.forEach((dot,i)=>dot.onclick=()=>showSlide(i));if(window.__parishGalleryTimer)clearInterval(window.__parishGalleryTimer);window.__parishGalleryTimer=slides.length>1?setInterval(()=>{const video=slides[current].querySelector("video");if(!video||video.paused)showSlide(current+1);},6000):null;}
  $("#documentsList").innerHTML=d.documents?.length?`<div class="documents-list">${d.documents.map(doc=>{const ext=(doc.original_name||"").split(".").pop().toUpperCase();return `<article class="document-row"><div class="document-icon" aria-hidden="true"><span>${esc(ext||"FILE")}</span></div><div class="document-info"><h3>${esc(doc.title)}</h3><p>${esc(doc.description||"Official parish document available to download.")}</p><span class="document-meta">${esc(ext||"DOCUMENT")} · Official parish resource</span></div><a class="document-download" href="/documents/${doc.id}/download" aria-label="Download ${esc(doc.title)}"><span>Download</span><span aria-hidden="true">↓</span></a></article>`}).join("")}</div>`:'<div class="documents-empty"><div class="documents-empty-icon">▤</div><h3>Parish documents will appear here</h3><p>Official notices, forms, reports and other shared resources will be listed here when published.</p></div>';
+
+ // Documents carousel: two cards visible per slide, auto-advance every 6 seconds.
+ const docsSlider=$("#documentsList .documents-list");
+ if(window.documentsAutoSlide)clearInterval(window.documentsAutoSlide);
+ if(docsSlider&&docsSlider.querySelectorAll(".document-row").length>2){
+  let docsPaused=false;
+  docsSlider.addEventListener("mouseenter",()=>docsPaused=true);
+  docsSlider.addEventListener("mouseleave",()=>docsPaused=false);
+  docsSlider.addEventListener("touchstart",()=>docsPaused=true,{passive:true});
+  docsSlider.addEventListener("touchend",()=>docsPaused=false,{passive:true});
+  window.documentsAutoSlide=setInterval(()=>{
+   if(docsPaused)return;
+   const step=docsSlider.clientWidth;
+   const next=docsSlider.scrollLeft+step;
+   if(next>=docsSlider.scrollWidth-5)docsSlider.scrollTo({left:0,behavior:"smooth"});
+   else docsSlider.scrollTo({left:next,behavior:"smooth"});
+  },6000);
+ }
  if(d.settings?.tagline){const tag=document.querySelector(".intro-strip strong");if(tag)tag.textContent=d.settings.tagline;}
  const email=d.settings?.parish_email||"mavholaparish.yl@gmail.com";
  const phone=d.settings?.parish_phone||"0679378130";
