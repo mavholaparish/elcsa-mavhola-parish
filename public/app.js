@@ -112,6 +112,12 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ticketModal.classLi
 ticketForm.onsubmit=async e=>{e.preventDefault();if(!selectedTicketEvent)return;const button=$("#ticketCheckoutSubmit"),message=$("#ticketCheckoutMessage"),data=new FormData(ticketForm);button.disabled=true;button.textContent="Submitting order…";message.textContent="";try{const result=await api("/api/tickets/checkout",{method:"POST",body:JSON.stringify({event_id:selectedTicketEvent.id,buyer_name:data.get("buyer_name").trim(),buyer_email:data.get("buyer_email").trim(),quantity:Number(data.get("quantity"))})});message.textContent=result.message||"Your ticket order has been recorded.";message.className="wide message";ticketForm.reset();button.textContent="Order submitted";}catch(err){message.textContent=err.message||"Could not submit your ticket order. Please try again.";message.className="wide message";button.disabled=false;button.textContent="Place ticket order";}};
 window.buyTicket=(id,title,price)=>{selectedTicketEvent={id,title,price};$("#ticketCheckoutTitle").textContent="Buy tickets";$("#ticketCheckoutEvent").textContent=title+" · "+money(price)+" per ticket";ticketForm.reset();$("#ticketCheckoutMessage").textContent="";$("#ticketCheckoutSubmit").disabled=false;$("#ticketCheckoutSubmit").textContent="Place ticket order";open("ticketCheckoutModal");ticketForm.querySelector("[name=buyer_name]").focus();};
 
+function showAdminAuthView(view){$("#adminLoginView").hidden=view!=="login";$("#forgotPasswordView").hidden=view!=="forgot";$("#resetPasswordView").hidden=view!=="reset";}
+$("#forgotPasswordLink").onclick=()=>{const email=$("#loginForm").elements.email.value.trim();$("#forgotPasswordForm").reset();$("#forgotPasswordForm").elements.email.value=email;$("#forgotPasswordMessage").textContent="";showAdminAuthView("forgot");};
+$("#backToLoginFromForgot").onclick=()=>showAdminAuthView("login");
+$("#backToLoginFromReset").onclick=()=>{showAdminAuthView("login");history.replaceState(null,"",location.pathname+location.hash);};
+$("#forgotPasswordForm").onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;$("#forgotPasswordMessage").textContent="Sending reset instructions…";try{const d=await api("/api/admin/forgot-password",{method:"POST",body:JSON.stringify({email:e.target.elements.email.value.trim()})});$("#forgotPasswordMessage").textContent=d.message||"If the address belongs to an administrator, a reset link will be sent shortly.";}catch(err){$("#forgotPasswordMessage").textContent=err.message;}finally{button.disabled=false;}};
+$("#resetPasswordForm").onsubmit=async e=>{e.preventDefault();const form=e.target,password=form.elements.password.value,confirmPassword=form.elements.confirmPassword.value;if(password!==confirmPassword){$("#resetPasswordMessage").textContent="The passwords do not match.";return;}const button=e.submitter;button.disabled=true;$("#resetPasswordMessage").textContent="Updating your password…";try{const d=await api("/api/admin/reset-password",{method:"POST",body:JSON.stringify({token:form.elements.token.value,password})});$("#resetPasswordMessage").textContent=d.message||"Your password has been reset. You can now sign in.";form.reset();history.replaceState(null,"",location.pathname+location.hash);setTimeout(()=>showAdminAuthView("login"),1200);}catch(err){$("#resetPasswordMessage").textContent=err.message;}finally{button.disabled=false;}};
 $("#loginForm").onsubmit=async e=>{
  e.preventDefault(); const button=e.submitter; button.disabled=true; $("#loginMessage").textContent="Signing in…";
  try {
@@ -120,7 +126,9 @@ $("#loginForm").onsubmit=async e=>{
   $("#adminLoginView").hidden=true; $("#adminDashboard").hidden=false;
  } catch(err) { $("#loginMessage").textContent=err.message; }
  finally { button.disabled=false; }
-};
+ };
+const adminResetToken=new URLSearchParams(location.search).get("adminReset");
+if(adminResetToken){open("adminModal");$("#resetPasswordForm").elements.token.value=adminResetToken;showAdminAuthView("reset");}
 $("#logoutBtn").onclick=async()=>{await api("/api/admin/logout",{method:"POST"});$("#adminDashboard").hidden=true;$("#adminLoginView").hidden=false;$("#loginForm").reset();};
 document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>showAdmin(b.dataset.tab));
 
