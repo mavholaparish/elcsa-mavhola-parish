@@ -50,7 +50,7 @@ async function loadPublic(){try{const d=await api("/api/public");
    else announcementSlider.scrollTo({left:next,behavior:"smooth"});
   },6000);
  }
- $("#eventsList").innerHTML=d.events.length?d.events.map(ev=>`<article class="item-card"><div class="meta">${esc(ev.event_date||"Date to be announced")} · ${esc(ev.venue||"Venue to be announced")}</div><h3>${esc(ev.title)}</h3><p>${esc(ev.description)}</p><div class="price">${Number(ev.ticket_price_cents)>0?money(ev.ticket_price_cents):"Free event"}</div>${Number(ev.ticket_price_cents)>0?`<button class="btn navy" data-buy-event="${ev.id}" data-event-title="${esc(ev.title)}" data-event-price="${Number(ev.ticket_price_cents)}">Buy tickets</button>`:""}</article>`).join(""):'<p class="muted">No upcoming events have been published yet.</p>';
+ $("#eventsList").innerHTML=d.events.length?d.events.map(ev=>`<article class="item-card event-slide"><div class="meta">${esc(ev.event_date||"Date to be announced")} · ${esc(ev.venue||"Venue to be announced")}</div><h3>${esc(ev.title)}</h3><p>${esc(ev.description)}</p><div class="price">${Number(ev.ticket_price_cents)>0?money(ev.ticket_price_cents):"Free event"}</div>${Number(ev.ticket_price_cents)>0?`<button class="btn navy" data-buy-event="${ev.id}" data-event-title="${esc(ev.title)}" data-event-price="${Number(ev.ticket_price_cents)}">Buy tickets</button>`:""}</article>`).join(""):'<p class="muted">No upcoming events have been published yet.</p>';
  $("#eventsList").querySelectorAll("[data-buy-event]").forEach(button=>button.addEventListener("click",()=>window.buyTicket(Number(button.dataset.buyEvent),button.dataset.eventTitle,Number(button.dataset.eventPrice))));
 
  // Events carousel: swipe and auto-advance through event cards.
