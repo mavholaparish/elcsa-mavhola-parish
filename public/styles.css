@@ -78,3 +78,7 @@
  .ticket-reader{max-width:100%}
  .ticket-scanner-panel .decision-row{display:flex;flex-wrap:wrap}
 }
+
+/* Hide merchandise on the parish landing page; reveal only on the dedicated Shop page. */
+.shop-section{display:none!important}
+.shop-section.shop-page{display:block!important}
