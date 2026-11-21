@@ -233,7 +233,7 @@ loadShop();renderShopCart();
   const target=$("#"+targetId);
   if(target){
    if(page==="shop")target.classList.add("shop-page");else target.classList.add("youth-page");
-   const heading=target.querySelector(".section-heading")||target.querySelector("div");
+   const heading=page==="shop"?target.querySelector(".section-heading"):target.querySelector(".youth-content");
    if(heading){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
    if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
    else document.title="Youth League | ELCSA Mavhola Parish";
