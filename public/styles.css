@@ -220,3 +220,9 @@ main>section[hidden]{display:none!important}
 
 /* Keep the Documents & downloads title together on narrow screens */
 @media(max-width:560px){#documents .section-heading{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:8px!important;margin-bottom:18px!important}#documents .section-heading>div{flex:1;min-width:0}#documents .section-heading h2{white-space:nowrap!important;font-size:clamp(19px,5.6vw,24px)!important;line-height:1.1!important;letter-spacing:-.03em!important;margin:6px 0 0!important}#documents .section-heading>p{display:none!important}}
+
+/* Announcements as swipeable horizontal slides */
+#announcementsList{overflow:hidden!important}
+#announcementsList .announcement-list{display:flex!important;flex-direction:row!important;gap:12px!important;overflow-x:auto!important;overflow-y:hidden!important;scroll-snap-type:x mandatory!important;scroll-behavior:smooth!important;-webkit-overflow-scrolling:touch!important;scrollbar-width:none!important;touch-action:pan-x!important;padding:0 0 4px!important}
+#announcementsList .announcement-list::-webkit-scrollbar{display:none!important}
+#announcementsList .announcement-item{flex:0 0 100%!important;width:100%!important;min-width:100%!important;scroll-snap-align:start!important;scroll-snap-stop:always!important}
