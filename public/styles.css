@@ -93,3 +93,9 @@ main>section[hidden]{display:none!important}
 .youth-page .youth-logo{width:clamp(150px,22vw,220px);height:clamp(150px,22vw,220px);flex:0 0 auto;overflow:visible;border-radius:0;background:transparent}
 .youth-page .youth-logo img{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center;overflow:visible;border-radius:0}
 @media(max-width:560px){.youth-page .youth-logo{width:clamp(150px,55vw,220px);height:clamp(150px,55vw,220px)}}
+
+/* Youth League page logo size and back-home contrast adjustments. */
+.youth-page .youth-logo{width:clamp(105px,14vw,150px)!important;height:clamp(105px,14vw,150px)!important}
+.youth-page .youth-logo img{width:100%!important;height:100%!important;object-fit:contain!important}
+.youth-page .shop-back-link{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;margin:0 0 12px;border:1px solid #fff;border-radius:5px;background:#fff;color:#092b67!important;font-weight:700;text-decoration:none!important;box-shadow:0 2px 8px #0002}
+.youth-page .shop-back-link:hover{background:#f2b323;color:#092b67!important}
