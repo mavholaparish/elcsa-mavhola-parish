@@ -532,3 +532,23 @@ main>section[hidden]{display:none!important}
 .pwa-install-button[hidden]{display:none!important}
 .pwa-install-button:focus-visible{outline:3px solid var(--gold,#f2b323);outline-offset:3px}
 @media(max-width:560px){.pwa-install-button{right:12px;bottom:12px;padding:11px 15px;font-size:12px}}
+
+/* Parish chat assistant */
+#parishChatLauncher{position:fixed;right:22px;bottom:92px;z-index:1200;display:flex;align-items:center;gap:10px;border:0;border-radius:999px;padding:14px 18px;background:linear-gradient(135deg,#092b67,#124b91);color:#fff;font-weight:800;box-shadow:0 10px 30px rgba(9,43,103,.28);cursor:pointer}
+#parishChatLauncher span:first-child{font-size:20px;color:#f2b323}
+#parishChatPanel{position:fixed;right:22px;bottom:154px;z-index:1201;width:min(380px,calc(100vw - 24px));height:min(590px,calc(100vh - 180px));display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid #dfe5ee;border-radius:20px;box-shadow:0 22px 60px rgba(9,43,103,.22);font-family:inherit}
+#parishChatPanel[hidden]{display:none!important}
+.parish-chat-header{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;background:#092b67;color:#fff}
+.parish-chat-brand{display:flex;align-items:center;gap:10px}.parish-chat-brand img{width:42px;height:42px;object-fit:contain;background:#fff;border-radius:50%;padding:3px}.parish-chat-brand strong{display:block;font-size:15px}.parish-chat-brand small{display:block;margin-top:3px;color:#dbe7ff;font-size:12px}
+.parish-chat-close{border:0;background:transparent;color:white;font-size:28px;cursor:pointer;line-height:1}
+.parish-chat-messages{flex:1;overflow-y:auto;padding:14px;background:#f5f7fb;display:flex;flex-direction:column;gap:9px}
+.parish-chat-message{white-space:pre-line;max-width:90%;padding:11px 13px;border-radius:14px;font-size:13px;line-height:1.5}
+.parish-chat-message.bot{align-self:flex-start;background:#fff;border:1px solid #e4eaf2;color:#17243a;border-bottom-left-radius:4px}
+.parish-chat-message.user{align-self:flex-end;background:#124b91;color:#fff;border-bottom-right-radius:4px}
+.parish-chat-quick{display:flex;flex-wrap:wrap;gap:6px;padding:9px 10px;background:#fff;border-top:1px solid #edf0f5}
+.parish-chat-quick button{border:1px solid #d7e1ef;background:#fff;color:#092b67;border-radius:18px;padding:7px 9px;font-size:11px;font-weight:700;cursor:pointer}
+.parish-chat-form{display:flex;gap:8px;padding:10px;border-top:1px solid #edf0f5;background:#fff}
+.parish-chat-form input{min-width:0;flex:1;border:1px solid #d7e1ef;border-radius:22px;padding:10px 12px;font:inherit;font-size:13px;outline-color:#124b91}
+.parish-chat-form button{border:0;border-radius:22px;background:#092b67;color:#fff;padding:0 14px;font-weight:700}
+.parish-chat-whatsapp{display:block;text-align:center;text-decoration:none;font-size:12px;font-weight:800;padding:11px;background:#128c4a;color:#fff}
+@media(max-width:560px){#parishChatLauncher{right:14px;bottom:84px;padding:12px 15px;font-size:13px}#parishChatPanel{right:8px;bottom:142px;width:calc(100vw - 16px);height:min(560px,calc(100vh - 160px));border-radius:16px}}
