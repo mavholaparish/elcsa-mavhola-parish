@@ -328,15 +328,22 @@ window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboa
  const welcome=()=>{if(!messages.childElementCount){say("Welcome to ELCSA Mavhola Parish! I can help with parish information, announcements, events, membership, Youth League, tickets and documents. What would you like to know?");}};
  const fetchData=async()=>{if(publicData)return publicData;try{const r=await fetch("/api/public");if(r.ok)publicData=await r.json();}catch{}return publicData;};
  const fmtDate=(s)=>{if(!s)return "";const d=new Date(s);return Number.isNaN(d.getTime())?String(s):d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});};
- const history=[];
  const answer=async q=>{
-  try{
-   const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:q,history:history.slice(-8)})});
-   const data=await r.json().catch(()=>({}));
-   if(!r.ok)throw new Error(data.error||"The assistant is unavailable.");
-   history.push({role:"user",content:q},{role:"assistant",content:data.reply});
-   return data.reply;
-  }catch(err){return (err.message||"The assistant is unavailable.")+" You can use the WhatsApp button below to reach the parish team.";}
+  const t=q.toLowerCase().trim(); let d=await fetchData();
+  if(/hello|hi\b|hey|greetings|good morning|good afternoon|good evening/.test(t))return "Hello and welcome! How can I help you with ELCSA Mavhola Parish today?";
+  if(/event|conference|calendar|coming|upcoming/.test(t)){
+   const events=d?.events||[];if(!events.length)return "I don't see any published events at the moment. Please check the Events section on our website later, or contact us on WhatsApp for assistance.";
+   return "Here are the parish events currently published:\n"+events.slice(0,6).map(e=>"• "+(e.title||"Event")+(e.event_date?" — "+fmtDate(e.event_date):"")+(e.location?" — "+e.location:"")).join("\n");
+  }
+  if(/announcement|news|notice/.test(t)){const list=d?.announcements||[];if(!list.length)return "There are no published announcements available right now. Please check back later or contact us on WhatsApp.";return "Latest parish announcements:\n"+list.slice(0,5).map(a=>"• "+(a.title||"Announcement")+(a.body?" — "+a.body:"")).join("\n");}
+  if(/member|membership|join|register|registration|application/.test(t)){const period=d?.membershipPeriod;let info="Youth League membership information and applications are available on the Membership section of our website.";if(period&&typeof period==="object"){if(period.openingDate||period.opening_date)info+="\nOpening date: "+fmtDate(period.openingDate||period.opening_date);if(period.closingDate||period.closing_date)info+="\nClosing date: "+fmtDate(period.closingDate||period.closing_date);}return info+" Please visit the Membership page to see whether applications are currently open and complete the form.";}
+  if(/youth|league/.test(t))return "ELCSA Mavhola Parish Youth League is a community of young people growing in faith, serving the church and building one another up. Please visit the Youth League page for current information and activities.";
+  if(/ticket|gala|buy|order|payment/.test(t))return "You can view available event tickets and ticket information in the Events & Tickets section of the parish website. If you need help with an order or payment, please contact us on WhatsApp.";
+  if(/document|download|file|form/.test(t)){const docs=d?.documents||[];if(!docs.length)return "No public documents are currently listed. Please check the Documents section again later.";return "Public documents currently listed:\n"+docs.slice(0,8).map(x=>"• "+(x.title||x.original_name||"Document")).join("\n")+"\nOpen the Documents section on the website to download them.";}
+  if(/contact|phone|email|address|where|location/.test(t))return "You can contact ELCSA Mavhola Parish:\nPhone / WhatsApp: 067 937 8130\nEmail: mavholaparish.yl@gmail.com\nAddress: PO Box 222, Makonde, 0984.";
+  if(/shop|sphaza|price|sell|item/.test(t))return "Please open the Shop section from the website menu to see available items and prices.";
+  if(/gallery|photo|picture|media/.test(t))return "Visit the Gallery section of our parish website to view published photos and media.";
+  return "I'm sorry, I don't have a confirmed answer to that question yet. You can ask another question or connect directly with our parish team on WhatsApp.";
  };
  const send=async q=>{q=q.trim();if(!q)return;say(q,"user");input.value="";setWA("Hello ELCSA Mavhola Parish. My question is: "+q);say(await answer(q));};
  launcher.addEventListener("click",()=>{panel.hidden=!panel.hidden;if(!panel.hidden){welcome();input.focus();}});
