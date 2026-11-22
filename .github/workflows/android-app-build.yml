@@ -7,7 +7,7 @@ on:
       - storage-migration/neon-r2
     paths:
       - package.json
-      - capacitor.config.ts
+      - capacitor.config.json
       - public/**
       - .github/workflows/android-app-build.yml
 
