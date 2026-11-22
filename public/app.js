@@ -1,6 +1,32 @@
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const money=c=>`R ${(Number(c||0)/100).toFixed(2)}`;
+// Native-friendly parish sharing: opens the device share sheet in the app or browser.
+(function initParishShare(){
+  const header=document.querySelector(".topbar");
+  if(!header||document.getElementById("parishShareButton"))return;
+  const button=document.createElement("button");
+  button.id="parishShareButton";
+  button.type="button";
+  button.className="parish-share-button";
+  button.setAttribute("aria-label","Share ELCSA Mavhola Parish");
+  button.textContent="Share";
+  button.style.cssText="border:1px solid rgba(255,255,255,.45);background:transparent;color:inherit;border-radius:999px;padding:9px 14px;font:inherit;font-weight:600;cursor:pointer;margin-left:auto;margin-right:10px;white-space:nowrap";
+  const menu=document.querySelector(".menu-toggle");
+  if(menu)header.insertBefore(button,menu);else header.appendChild(button);
+  button.addEventListener("click",async()=>{
+    const shareData={title:"ELCSA Mavhola Parish",text:"Stay connected with ELCSA Mavhola Parish — announcements, events, Youth League and parish news.",url:"https://mavholaparish.co.za"};
+    try{
+      const nativeShare=window.Capacitor?.Plugins?.Share;
+      if(nativeShare?.share){await nativeShare.share(shareData);return;}
+      if(navigator.share){await navigator.share(shareData);return;}
+      await navigator.clipboard.writeText(shareData.url);
+      toast("Parish website link copied.");
+    }catch(error){
+      if(error?.name!=="AbortError")toast("Sharing is not available right now.");
+    }
+  });
+})();
 function formatAnnouncementDate(raw){if(!raw)return "Date unavailable";const s=String(raw);const d=new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)?s:s+"Z");return Number.isNaN(d.getTime())?"Date unavailable":d.toLocaleDateString("en-ZA",{day:"numeric",month:"short",year:"numeric"});}
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3500)};
 async function api(url,opts={}){const headers={...(opts.body instanceof FormData?{}:{"Content-Type":"application/json"}),...(opts.headers||{})};const r=await fetch(url,{...opts,headers});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Something went wrong");return d}
