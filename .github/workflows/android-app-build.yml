@@ -9,6 +9,7 @@ on:
       - package.json
       - capacitor.config.json
       - public/**
+      - scripts/**
       - .github/workflows/android-app-build.yml
 
 permissions:
