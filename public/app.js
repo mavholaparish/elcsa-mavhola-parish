@@ -310,3 +310,46 @@ window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboa
 
 /* Progressive Web App installation and offline shell */
 (()=>{const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(err=>console.warn("PWA worker registration failed",err)));}let installPrompt=null;const installButton=document.createElement("button");installButton.type="button";installButton.className="pwa-install-button";installButton.textContent=isIOS?"How to install":"Install Parish App";installButton.setAttribute("aria-label","Install ELCSA Mavhola Parish app");installButton.hidden=true;document.body.appendChild(installButton);window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();installPrompt=event;installButton.textContent="Install Parish App";installButton.hidden=isStandalone();});installButton.addEventListener("click",async()=>{if(isIOS&&!isStandalone()){alert("To install ELCSA Mavhola Parish:\\n1. Tap the Share button in Safari.\\n2. Choose Add to Home Screen.\\n3. Tap Add.");return;}if(!installPrompt){alert("To install this parish app, open the website in Chrome or Edge and use the browser menu to choose Install app or Add to Home screen.");return;}installPrompt.prompt();try{await installPrompt.userChoice;}catch{}installPrompt=null;installButton.hidden=true;});window.addEventListener("appinstalled",()=>{installButton.hidden=true;installPrompt=null;});if(isStandalone())installButton.hidden=true;else if(isIOS)installButton.hidden=false;})();
+/* ELCSA Mavhola Parish website chat assistant — FAQ-first with WhatsApp human handoff */
+(()=> {
+ if(document.getElementById("parishChatLauncher")) return;
+ const WA_NUMBER="27679378130";
+ const whatsappUrl=(message="Hello ELCSA Mavhola Parish. I need assistance. Please help me.")=>"https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(message);
+ const launcher=document.createElement("button");
+ launcher.id="parishChatLauncher"; launcher.type="button"; launcher.setAttribute("aria-label","Open parish chat assistant"); launcher.innerHTML='<span aria-hidden="true">✦</span><span class="parish-chat-launch-label">Chat with us</span>';
+ const panel=document.createElement("section"); panel.id="parishChatPanel"; panel.className="parish-chat-panel"; panel.hidden=true; panel.setAttribute("aria-label","ELCSA Mavhola Parish chat assistant");
+ panel.innerHTML='<header class="parish-chat-header"><div class="parish-chat-brand"><img src="/elcsa-logo.png" alt="ELCSA Mavhola Parish logo"><div><strong>Parish Assistant</strong><small>ELCSA Mavhola Parish</small></div></div><button type="button" class="parish-chat-close" aria-label="Close chat">×</button></header><div class="parish-chat-messages" aria-live="polite"></div><div class="parish-chat-quick"><button type="button" data-question="events">Upcoming events</button><button type="button" data-question="membership">Membership</button><button type="button" data-question="youth">Youth League</button><button type="button" data-question="tickets">Tickets</button></div><form class="parish-chat-form"><input aria-label="Type your question" placeholder="Ask the parish a question…" autocomplete="off"><button type="submit" aria-label="Send message">Send</button></form><a class="parish-chat-whatsapp" target="_blank" rel="noopener noreferrer">Talk to a person on WhatsApp</a>';
+ document.body.append(launcher,panel);
+ const messages=panel.querySelector(".parish-chat-messages"), input=panel.querySelector("input"), wa=panel.querySelector(".parish-chat-whatsapp");
+ let publicData=null;
+ const setWA=(msg)=>{wa.href=whatsappUrl(msg);};
+ setWA("Hello ELCSA Mavhola Parish. I need assistance. Please help me.");
+ const say=(text,who="bot")=>{const el=document.createElement("div");el.className="parish-chat-message "+who;el.textContent=text;messages.appendChild(el);messages.scrollTop=messages.scrollHeight;};
+ const welcome=()=>{if(!messages.childElementCount){say("Welcome to ELCSA Mavhola Parish! I can help with parish information, announcements, events, membership, Youth League, tickets and documents. What would you like to know?");}};
+ const fetchData=async()=>{if(publicData)return publicData;try{const r=await fetch("/api/public");if(r.ok)publicData=await r.json();}catch{}return publicData;};
+ const fmtDate=(s)=>{if(!s)return "";const d=new Date(s);return Number.isNaN(d.getTime())?String(s):d.toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});};
+ const answer=async q=>{
+  const t=q.toLowerCase().trim(); let d=await fetchData();
+  if(/hello|hi\b|hey|greetings|good morning|good afternoon|good evening/.test(t))return "Hello and welcome! How can I help you with ELCSA Mavhola Parish today?";
+  if(/event|conference|calendar|coming|upcoming/.test(t)){
+   const events=d?.events||[];if(!events.length)return "I don't see any published events at the moment. Please check the Events section on our website later, or contact us on WhatsApp for assistance.";
+   return "Here are the parish events currently published:\n"+events.slice(0,6).map(e=>"• "+(e.title||"Event")+(e.event_date?" — "+fmtDate(e.event_date):"")+(e.location?" — "+e.location:"")).join("\n");
+  }
+  if(/announcement|news|notice/.test(t)){const list=d?.announcements||[];if(!list.length)return "There are no published announcements available right now. Please check back later or contact us on WhatsApp.";return "Latest parish announcements:\n"+list.slice(0,5).map(a=>"• "+(a.title||"Announcement")+(a.body?" — "+a.body:"")).join("\n");}
+  if(/member|membership|join|register|registration|application/.test(t)){const period=d?.membershipPeriod;let info="Youth League membership information and applications are available on the Membership section of our website.";if(period&&typeof period==="object"){if(period.openingDate||period.opening_date)info+="\nOpening date: "+fmtDate(period.openingDate||period.opening_date);if(period.closingDate||period.closing_date)info+="\nClosing date: "+fmtDate(period.closingDate||period.closing_date);}return info+" Please visit the Membership page to see whether applications are currently open and complete the form.";}
+  if(/youth|league/.test(t))return "ELCSA Mavhola Parish Youth League is a community of young people growing in faith, serving the church and building one another up. Please visit the Youth League page for current information and activities.";
+  if(/ticket|gala|buy|order|payment/.test(t))return "You can view available event tickets and ticket information in the Events & Tickets section of the parish website. If you need help with an order or payment, please contact us on WhatsApp.";
+  if(/document|download|file|form/.test(t)){const docs=d?.documents||[];if(!docs.length)return "No public documents are currently listed. Please check the Documents section again later.";return "Public documents currently listed:\n"+docs.slice(0,8).map(x=>"• "+(x.title||x.original_name||"Document")).join("\n")+"\nOpen the Documents section on the website to download them.";}
+  if(/contact|phone|email|address|where|location/.test(t))return "You can contact ELCSA Mavhola Parish:\nPhone / WhatsApp: 067 937 8130\nEmail: mavholaparish.yl@gmail.com\nAddress: PO Box 222, Makonde, 0984.";
+  if(/shop|sphaza|price|sell|item/.test(t))return "Please open the Shop section from the website menu to see available items and prices.";
+  if(/gallery|photo|picture|media/.test(t))return "Visit the Gallery section of our parish website to view published photos and media.";
+  return "I'm sorry, I don't have a confirmed answer to that question yet. You can ask another question or connect directly with our parish team on WhatsApp.";
+ };
+ const send=async q=>{q=q.trim();if(!q)return;say(q,"user");input.value="";setWA("Hello ELCSA Mavhola Parish. My question is: "+q);say(await answer(q));};
+ launcher.addEventListener("click",()=>{panel.hidden=!panel.hidden;if(!panel.hidden){welcome();input.focus();}});
+ panel.querySelector(".parish-chat-close").addEventListener("click",()=>panel.hidden=true);
+ panel.querySelector(".parish-chat-form").addEventListener("submit",e=>{e.preventDefault();send(input.value);});
+ panel.querySelectorAll("[data-question]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.question)));
+ panel.querySelectorAll("[data-question]").forEach(b=>{const original=b.textContent;b.addEventListener("click",()=>{});});
+ panel.querySelector(".parish-chat-quick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const q={events:"What upcoming events are listed?",membership:"How do I apply for Youth League membership?",youth:"Tell me about the Youth League",tickets:"How can I buy tickets?"}[b.dataset.question];if(q){messages.lastChild&&messages.lastChild.remove();send(q);}});
+})();
