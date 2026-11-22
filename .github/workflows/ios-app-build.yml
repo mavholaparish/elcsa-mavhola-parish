@@ -10,6 +10,7 @@ on:
       - package-lock.json
       - capacitor.config.json
       - public/**
+      - scripts/**
       - .github/workflows/ios-app-build.yml
 
 permissions:
