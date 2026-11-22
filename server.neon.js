@@ -525,12 +525,12 @@ app.post("/api/admin/events/:id/ticket-reminders",requireAdmin,asyncRoute(async(
    AND buyer_email IS NOT NULL AND BTRIM(buyer_email)<>''
   GROUP BY LOWER(BTRIM(buyer_email)) ORDER BY LOWER(BTRIM(buyer_email))`,[eventId])).rows;
  if(!buyers.length)return res.status(409).json({error:"There are no payment-confirmed ticket buyers for this event yet."});
- const eventDetails="Event: "+event.title+"\\nDate: "+(event.event_date||"To be announced")+"\\nVenue: "+(event.venue||"To be announced");
+ const eventDetails="Event: "+event.title+"\nDate: "+(event.event_date||"To be announced")+"\nVenue: "+(event.venue||"To be announced");
  let sent=0,failed=0;
  for(const buyer of buyers){
   try{
    const ok=await sendMail(buyer.email,subject,
-    "Dear "+(buyer.buyer_name||"ticket holder")+",\\n\\n"+message+"\\n\\n"+eventDetails+"\\n\\nPlease keep your ticket(s) safe and present them at the entrance.\\n\\nELCSA Mavhola Parish");
+    "Dear "+(buyer.buyer_name||"ticket holder")+",\n\n"+message+"\n\n"+eventDetails+"\n\nPlease keep your ticket(s) safe and present them at the entrance.\n\nELCSA Mavhola Parish");
    if(ok)sent++;else failed++;
   }catch(error){failed++;console.error("Event reminder email failed for "+buyer.email+":",error?.message||error);}
  }
