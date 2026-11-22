@@ -526,3 +526,9 @@ main>section[hidden]{display:none!important}
   .contact .footer-social-icon{width:30px;height:30px;flex-basis:30px;padding:6px}
   .contact .footer-social-icon svg{width:17px;height:17px}
 }
+
+/* Install app CTA: compact branded floating control */
+.pwa-install-button{position:fixed;right:16px;bottom:16px;z-index:70;border:0;border-radius:28px;padding:12px 18px;background:var(--navy,#092b67);color:#fff;font-size:13px;font-weight:700;box-shadow:0 8px 24px #092b6730}
+.pwa-install-button[hidden]{display:none!important}
+.pwa-install-button:focus-visible{outline:3px solid var(--gold,#f2b323);outline-offset:3px}
+@media(max-width:560px){.pwa-install-button{right:12px;bottom:12px;padding:11px 15px;font-size:12px}}
