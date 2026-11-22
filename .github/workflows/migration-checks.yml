@@ -29,6 +29,7 @@ jobs:
             fi
           fi
       - run: node --check server.neon.js
+      - run: node --check public/app.js
       - run: node --check database.js
       - run: node --check storage.js
       - run: node --check upload-validation.js
