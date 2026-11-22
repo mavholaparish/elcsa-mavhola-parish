@@ -9,7 +9,12 @@
     "test": "node --test",
     "test:schema": "node tests/schema.test.js",
     "start:neon": "node server.neon.js",
-    "dev:neon": "node --watch server.neon.js"
+    "dev:neon": "node --watch server.neon.js",
+    "mobile:android:sync": "npx cap sync android",
+    "mobile:android:open": "npx cap open android",
+    "mobile:android:build": "cd android && ./gradlew assembleDebug",
+    "mobile:ios:sync": "npx cap sync ios",
+    "mobile:ios:open": "npx cap open ios"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -26,9 +31,16 @@
     "pg": "^8.13.1",
     "connect-pg-simple": "^10.0.0",
     "@aws-sdk/client-s3": "^3.750.0",
-    "@aws-sdk/s3-request-presigner": "^3.750.0"
+    "@aws-sdk/s3-request-presigner": "^3.750.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/share": "^8.0.0"
   },
   "engines": {
     "node": "22.x"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.0.0"
   }
 }
