@@ -349,7 +349,5 @@ window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboa
  launcher.addEventListener("click",()=>{panel.hidden=!panel.hidden;if(!panel.hidden){welcome();input.focus();}});
  panel.querySelector(".parish-chat-close").addEventListener("click",()=>panel.hidden=true);
  panel.querySelector(".parish-chat-form").addEventListener("submit",e=>{e.preventDefault();send(input.value);});
- panel.querySelectorAll("[data-question]").forEach(b=>b.addEventListener("click",()=>send(b.dataset.question)));
- panel.querySelectorAll("[data-question]").forEach(b=>{const original=b.textContent;b.addEventListener("click",()=>{});});
- panel.querySelector(".parish-chat-quick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const q={events:"What upcoming events are listed?",membership:"How do I apply for Youth League membership?",youth:"Tell me about the Youth League",tickets:"How can I buy tickets?"}[b.dataset.question];if(q){messages.lastChild&&messages.lastChild.remove();send(q);}});
+ panel.querySelector(".parish-chat-quick").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const q={events:"What upcoming events are listed?",membership:"How do I apply for Youth League membership?",youth:"Tell me about the Youth League",tickets:"How can I buy tickets?"}[b.dataset.question];if(q)send(q);});
 })();
