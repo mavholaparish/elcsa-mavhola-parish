@@ -34,11 +34,19 @@ jobs:
         run: npx cap add android
       - name: Sync native app
         run: npx cap sync android
-      - name: Build debug APK
-        run: cd android && ./gradlew assembleDebug
-      - name: Upload Android APK
+      - name: Build Android test and release packages
+        run: cd android && ./gradlew assembleDebug assembleRelease bundleRelease
+      - name: Upload Android test APK
         uses: actions/upload-artifact@v4
         with:
           name: mavhola-parish-android-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+      - name: Upload Android release APK and AAB (unsigned)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mavhola-parish-android-release-unsigned
+          path: |
+            android/app/build/outputs/apk/release/app-release-unsigned.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 14
