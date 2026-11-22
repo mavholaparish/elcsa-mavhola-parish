@@ -309,8 +309,45 @@ loadShop();renderShopCart();
 window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboard"),p=d.products.find(x=>Number(x.id)===Number(id));if(!p)return;const title=prompt("Product name:",p.title);if(title===null)return;const price=prompt("Price in rand:",(Number(p.price_cents)/100).toFixed(2));if(price===null)return;const description=prompt("Description:",p.description||"");if(description===null)return;const category=prompt("Category:",p.category||"Merchandise");if(category===null)return;const sizes=prompt("Available sizes, separated by commas:",(p.sizes||[]).join(", "));if(sizes===null)return;const colors=prompt("Available colours, separated by commas:",(p.colors||[]).join(", "));if(colors===null)return;const stock=prompt("Stock quantity (leave blank for unlimited):",p.stock_quantity===null?"":p.stock_quantity);if(stock===null)return;await api("/api/shop/admin/products/"+id,{method:"PUT",body:JSON.stringify({title,price,description,category,sizes,colors,stock_quantity:stock})});toast("Product updated");showAdmin("shop");loadShop();}catch(e){toast(e.message);}};
 
 /* Progressive Web App installation and offline shell */
-(()=>{const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(err=>console.warn("PWA worker registration failed",err)));}let installPrompt=null;const installButton=document.createElement("button");installButton.type="button";installButton.className="pwa-install-button";installButton.textContent=isIOS?"How to install":"Install Parish App";installButton.setAttribute("aria-label","Install ELCSA Mavhola Parish app");installButton.hidden=true;document.body.appendChild(installButton);window.addEventListener("beforeinstallprompt",event=>{event.preventDefault();installPrompt=event;installButton.textContent="Install Parish App";installButton.hidden=isStandalone();});installButton.addEventListener("click",async()=>{if(isIOS&&!isStandalone()){alert("To install ELCSA Mavhola Parish:\\n1. Tap the Share button in Safari.\\n2. Choose Add to Home Screen.\\n3. Tap Add.");return;}if(!installPrompt){alert("To install this parish app, open the website in Chrome or Edge and use the browser menu to choose Install app or Add to Home screen.");return;}installPrompt.prompt();try{await installPrompt.userChoice;}catch{}installPrompt=null;installButton.hidden=true;});window.addEventListener("appinstalled",()=>{installButton.hidden=true;installPrompt=null;});if(isStandalone())installButton.hidden=true;else if(isIOS)installButton.hidden=false;})();
-/* ELCSA Mavhola Parish website chat assistant — FAQ-first with WhatsApp human handoff */
+(()=>{
+ const isStandalone=()=>window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;
+ const ua=navigator.userAgent||"";
+ const isIOS=/iphone|ipad|ipod/i.test(ua)&&!window.MSStream;
+ const isAndroid=/android/i.test(ua);
+ if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("/service-worker.js").catch(err=>console.warn("PWA worker registration failed",err)));}
+ let installPrompt=null;
+ const installButton=document.createElement("button");
+ installButton.type="button";
+ installButton.className="pwa-install-button";
+ installButton.textContent="Install Parish App";
+ installButton.setAttribute("aria-label","Install ELCSA Mavhola Parish app");
+ installButton.hidden=isStandalone();
+ document.body.appendChild(installButton);
+ window.addEventListener("beforeinstallprompt",event=>{
+  event.preventDefault();
+  installPrompt=event;
+  installButton.textContent="Install Parish App";
+  installButton.hidden=isStandalone();
+ });
+ installButton.addEventListener("click",async()=>{
+  if(isStandalone()){installButton.hidden=true;return;}
+  if(installPrompt){
+   try{installPrompt.prompt();await installPrompt.userChoice;}catch(err){console.warn("PWA install prompt failed",err);}
+   installPrompt=null;
+   if(isStandalone())installButton.hidden=true;
+   return;
+  }
+  if(isIOS){
+   alert("Install ELCSA Mavhola Parish on your iPhone or iPad:\n\n1. Open this website in Safari (not inside another app).\n2. Tap the Share icon (the square with an upward arrow).\n3. Scroll and tap Add to Home Screen.\n4. Tap Add at the top.\n\nThe parish app icon will then appear on your Home Screen.");
+  }else if(isAndroid){
+   alert("Install ELCSA Mavhola Parish on Android:\n\n1. Open this website in Chrome.\n2. Tap the three dots (⋮) at the top right.\n3. Tap Install app (or Add to Home screen).\n4. Confirm Install/Add.\n\nIf you do not see Install app, update Chrome and open the parish website directly in Chrome.");
+  }else{
+   alert("Install ELCSA Mavhola Parish:\n\nOpen the browser menu and choose Install app. If that option is not available, use Add to Home screen or try the website in Chrome or Edge.");
+  }
+ });
+ window.addEventListener("appinstalled",()=>{installButton.hidden=true;installPrompt=null;});
+ if(isStandalone())installButton.hidden=true;
+})();/* ELCSA Mavhola Parish website chat assistant — FAQ-first with WhatsApp human handoff */
 (()=> {
  if(document.getElementById("parishChatLauncher")) return;
  const WA_NUMBER="27679378130";
