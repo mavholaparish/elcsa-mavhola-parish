@@ -1,0 +1,45 @@
+name: iOS App Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - storage-migration/neon-r2
+    paths:
+      - package.json
+      - package-lock.json
+      - capacitor.config.json
+      - public/**
+      - .github/workflows/ios-app-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios-simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Select Xcode
+        run: |
+          xcode-select -p
+          xcodebuild -version
+      - name: Install web dependencies
+        run: npm ci
+      - name: Add iOS native project
+        run: npx cap add ios
+      - name: Sync native app
+        run: npx cap sync ios
+      - name: Build iOS simulator app
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Release -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios build
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: mavhola-parish-ios-simulator
+          path: build/ios/Build/Products/Release-iphonesimulator/App.app
+          retention-days: 14
