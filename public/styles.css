@@ -552,3 +552,8 @@ main>section[hidden]{display:none!important}
 .parish-chat-form button{border:0;border-radius:22px;background:#092b67;color:#fff;padding:0 14px;font-weight:700}
 .parish-chat-whatsapp{display:block;text-align:center;text-decoration:none;font-size:12px;font-weight:800;padding:11px;background:#128c4a;color:#fff}
 @media(max-width:560px){#parishChatLauncher{right:14px;bottom:84px;padding:12px 15px;font-size:13px}#parishChatPanel{right:8px;bottom:142px;width:calc(100vw - 16px);height:min(560px,calc(100vh - 160px));border-radius:16px}}
+
+/* Keep floating site shortcuts from covering admin form controls on mobile. */
+body:has(#adminModal.open) #parishChatLauncher,
+body:has(#adminModal.open) .pwa-install-button,
+body:has(#adminModal.open) #parishChatPanel{display:none!important;pointer-events:none!important;}
