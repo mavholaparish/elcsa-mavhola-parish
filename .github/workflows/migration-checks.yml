@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - storage-migration/neon-r2
+      - feature/parish-member-directory
   pull_request:
     branches:
       - main
