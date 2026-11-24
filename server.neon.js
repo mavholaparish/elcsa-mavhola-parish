@@ -327,6 +327,66 @@ app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
  ]);
  res.json({applications:applications.rows,announcements:announcements.rows,events:events.rows,media:media.rows,documents:documents.rows,orders:orders.rows,settings});
 }));
+// Private parish member directory. All routes are admin-only and do not expose this data publicly.
+function parseCsvRows(input){
+ const rows=[];let row=[],field="",quoted=false;
+ for(let i=0;i<input.length;i++){const ch=input[i];
+  if(quoted){if(ch==='"'&&input[i+1]==='"'){field+='"';i++;}else if(ch==='"'){quoted=false;}else field+=ch;}
+  else if(ch==='"'){quoted=true;}
+  else if(ch===","){row.push(field);field="";}
+  else if(ch==="\n"||ch==="\r"){if(ch==="\r"&&input[i+1]==="\n")i++;row.push(field);field="";if(row.some(v=>v.trim()))rows.push(row);row=[];}
+  else field+=ch;
+ }
+ if(field.length||row.length){row.push(field);if(row.some(v=>v.trim()))rows.push(row);}
+ return rows;
+}
+function memberCsvHeaderIndex(headers,label){return headers.findIndex(h=>String(h||"").trim().toLowerCase()===label.toLowerCase());}
+app.get("/api/admin/parish-members",requireAdmin,asyncRoute(async(req,res)=>{
+ const [members,congregations,campaigns]=await Promise.all([
+  db.query("SELECT * FROM parish_members ORDER BY full_name"),
+  db.query("SELECT DISTINCT congregation FROM parish_members WHERE congregation<>'' ORDER BY congregation"),
+  db.query("SELECT * FROM parish_email_campaigns ORDER BY created_at DESC LIMIT 30")
+ ]);
+ res.json({members:members.rows,congregations:congregations.rows.map(r=>r.congregation),campaigns:campaigns.rows});
+}));
+app.post("/api/admin/parish-members/import",requireAdmin,upload.single("file"),asyncRoute(async(req,res)=>{
+ if(!req.file)return res.status(400).json({error:"Choose the cleaned members CSV file to import."});
+ const raw=req.file.buffer.toString("utf8").replace(/^\uFEFF/,"");
+ const rows=parseCsvRows(raw);if(rows.length<2)return res.status(400).json({error:"The CSV file contains no member rows."});
+ const headers=rows[0],indices={name:memberCsvHeaderIndex(headers,"Full Name"),email:memberCsvHeaderIndex(headers,"Email"),phone:memberCsvHeaderIndex(headers,"Contact Number"),congregation:memberCsvHeaderIndex(headers,"Congregation")};
+ if(Object.values(indices).some(i=>i<0))return res.status(400).json({error:"CSV headings must be Full Name, Email, Contact Number and Congregation."});
+ let imported=0,updated=0,skipped=0;
+ for(const row of rows.slice(1)){
+  const name=String(row[indices.name]||"").trim(),email=String(row[indices.email]||"").trim().toLowerCase(),phone=String(row[indices.phone]||"").trim(),congregation=String(row[indices.congregation]||"").trim();
+  if(!name){skipped++;continue;}
+  if(email&&!/^\S+@\S+\.\S+$/.test(email)){skipped++;continue;}
+  if(email){
+   const prior=await db.query("SELECT id FROM parish_members WHERE LOWER(email)=LOWER($1)",[email]);
+   await db.query("INSERT INTO parish_members(full_name,email,contact_number,congregation) VALUES($1,$2,$3,$4) ON CONFLICT (LOWER(email)) WHERE email IS NOT NULL AND email<>'' DO UPDATE SET full_name=EXCLUDED.full_name,contact_number=EXCLUDED.contact_number,congregation=EXCLUDED.congregation,updated_at=NOW()",[name,email,phone,congregation]);
+   if(prior.rowCount)updated++;else imported++;
+  }else{await db.query("INSERT INTO parish_members(full_name,email,contact_number,congregation) VALUES($1,NULL,$2,$3)",[name,phone,congregation]);imported++;}
+ }
+ res.json({ok:true,imported,updated,skipped,total:imported+updated});
+}));
+app.post("/api/admin/parish-members/email",requireAdmin,asyncRoute(async(req,res)=>{
+ const subject=String(req.body.subject||"").trim(),message=String(req.body.message||"").trim(),filter=String(req.body.congregation||"ALL").trim();
+ if(!subject||!message)return res.status(400).json({error:"Email subject and message are required."});
+ if(subject.length>180||message.length>10000)return res.status(400).json({error:"Subject or message is too long."});
+ const selected=await db.query(filter==="ALL"?"SELECT id,full_name,email FROM parish_members WHERE email IS NOT NULL AND email<>'' ORDER BY full_name":"SELECT id,full_name,email FROM parish_members WHERE email IS NOT NULL AND email<>'' AND congregation=$1 ORDER BY full_name",[...(filter==="ALL"?[]:[filter])]);
+ const recipients=selected.rows;const unique=new Map();for(const m of recipients)if(m.email)unique.set(String(m.email).trim().toLowerCase(),m);
+ const list=[...unique.values()];if(!list.length)return res.status(400).json({error:"No members with email addresses match this selection."});
+ if(list.length>3000)return res.status(400).json({error:"This email campaign exceeds the safe batch limit of 3,000 recipients."});
+ const campaign=(await db.query("INSERT INTO parish_email_campaigns(subject,message,congregation_filter,recipient_count) VALUES($1,$2,$3,$4) RETURNING id",[subject,message,filter,list.length])).rows[0];
+ let sent=0,failed=0;
+ for(const member of list){
+  let status="Failed",error=null;
+  try{const delivered=await sendMail(member.email,subject,"Dear "+member.full_name+",\n\n"+message+"\n\nELCSA Mavhola Parish");if(delivered){status="Sent";sent++;}else{error="Email delivery is not configured.";failed++;}}
+  catch(e){error=String(e.message||e).slice(0,500);failed++;}
+  await db.query("INSERT INTO parish_email_campaign_recipients(campaign_id,member_id,email,status,error,sent_at) VALUES($1,$2,$3,$4,$5,CASE WHEN $4='Sent' THEN NOW() ELSE NULL END)",[campaign.id,member.id,member.email,status,error]);
+ }
+ await db.query("UPDATE parish_email_campaigns SET sent_count=$1,failed_count=$2 WHERE id=$3",[sent,failed,campaign.id]);
+ res.json({ok:true,campaign_id:campaign.id,total:list.length,sent,failed});
+}));
 app.get("/api/admin/applications/export.csv",requireAdmin,asyncRoute(async(req,res)=>{
  const rows=(await db.query("SELECT full_name,email,phone,congregation,status,created_at FROM applications ORDER BY LOWER(full_name)")).rows;
  const cell=v=>{let value=String(v??"");if(/^[\s\u0000-\u001f]*[=+\-@]/.test(value))value="'"+value;return '"'+value.replace(/"/g,'""')+'"';};
