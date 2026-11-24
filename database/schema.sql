@@ -157,3 +157,24 @@ CREATE TABLE IF NOT EXISTS shop_order_items (
   colour TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS shop_order_items_order_idx ON shop_order_items(order_id);
+
+
+-- Private parish member directory and email campaign history.
+CREATE TABLE IF NOT EXISTS parish_members (
+ id BIGSERIAL PRIMARY KEY, full_name TEXT NOT NULL, email TEXT, contact_number TEXT NOT NULL DEFAULT '', congregation TEXT NOT NULL DEFAULT '',
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS parish_members_email_unique_idx ON parish_members (LOWER(email)) WHERE email IS NOT NULL AND email <> '';
+CREATE INDEX IF NOT EXISTS parish_members_name_idx ON parish_members (LOWER(full_name));
+CREATE INDEX IF NOT EXISTS parish_members_congregation_idx ON parish_members (LOWER(congregation));
+CREATE TABLE IF NOT EXISTS parish_email_campaigns (
+ id BIGSERIAL PRIMARY KEY, subject TEXT NOT NULL, message TEXT NOT NULL, congregation_filter TEXT NOT NULL DEFAULT 'ALL',
+ recipient_count INTEGER NOT NULL DEFAULT 0, sent_count INTEGER NOT NULL DEFAULT 0, failed_count INTEGER NOT NULL DEFAULT 0,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS parish_email_campaign_recipients (
+ id BIGSERIAL PRIMARY KEY, campaign_id BIGINT NOT NULL REFERENCES parish_email_campaigns(id) ON DELETE CASCADE,
+ member_id BIGINT REFERENCES parish_members(id) ON DELETE SET NULL, email TEXT NOT NULL, status TEXT NOT NULL,
+ error TEXT, sent_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS parish_campaign_recipient_campaign_idx ON parish_email_campaign_recipients(campaign_id);
