@@ -2,16 +2,6 @@ name: iOS App Build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - storage-migration/neon-r2
-    paths:
-      - package.json
-      - package-lock.json
-      - capacitor.config.json
-      - public/**
-      - scripts/**
-      - .github/workflows/ios-app-build.yml
 
 permissions:
   contents: read
