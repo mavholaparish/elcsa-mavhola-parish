@@ -130,6 +130,8 @@ const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:20*1024*102
  fileFilter:fileFilter((f)=>/^(image\/(jpeg|png|gif|webp)|video\/(mp4|webm))$/.test(f.mimetype))});
 const documentUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:25*1024*1024,files:1},
  fileFilter:fileFilter(f=>[".pdf",".doc",".docx",".xls",".xlsx",".ppt",".pptx",".txt"].includes(path.extname(f.originalname).toLowerCase()))});
+const csvUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:5*1024*1024,files:1},
+ fileFilter:(req,file,cb)=>cb(null,path.extname(file.originalname).toLowerCase()===".csv"||/csv|text\/plain/i.test(file.mimetype))});
 const proofUpload=multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024,files:1},
  fileFilter:fileFilter(f=>["application/pdf","image/jpeg","image/png","image/webp"].includes(f.mimetype))});
 const requireAdmin=(req,res,next)=>req.session.admin?next():res.status(401).json({error:"Please sign in as an administrator."});
@@ -349,7 +351,7 @@ app.get("/api/admin/parish-members",requireAdmin,asyncRoute(async(req,res)=>{
  ]);
  res.json({members:members.rows,congregations:congregations.rows.map(r=>r.congregation),campaigns:campaigns.rows});
 }));
-app.post("/api/admin/parish-members/import",requireAdmin,upload.single("file"),asyncRoute(async(req,res)=>{
+app.post("/api/admin/parish-members/import",requireAdmin,csvUpload.single("file"),asyncRoute(async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"Choose the cleaned members CSV file to import."});
  const raw=req.file.buffer.toString("utf8").replace(/^\uFEFF/,"");
  const rows=parseCsvRows(raw);if(rows.length<2)return res.status(400).json({error:"The CSV file contains no member rows."});
