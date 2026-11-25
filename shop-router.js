@@ -47,6 +47,29 @@ module.exports = ({ db, storage, sendMail, requireAdmin }) => {
   const money = cents => "R " + (Number(cents || 0) / 100).toFixed(2);
   const reference = id => "SHOP-" + String(id).padStart(6, "0");
 
+  // Public donation record; EFT details are read from existing parish settings.
+  router.post("/donations", async (req, res, next) => {
+    try {
+      const amount = Number(req.body.amount);
+      const name = String(req.body.donor_name || "").trim().slice(0,120);
+      const email = String(req.body.donor_email || "").trim().slice(0,200);
+      const purpose = String(req.body.purpose || "General parish support").trim().slice(0,100);
+      const message = String(req.body.message || "").trim().slice(0,500);
+      if (!Number.isFinite(amount) || amount < 5 || amount > 1000000) return res.status(400).json({error:"Enter a donation amount between R5 and R1,000,000."});
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({error:"Please enter a valid email address."});
+      await db.query(`CREATE TABLE IF NOT EXISTS parish_donations (id BIGSERIAL PRIMARY KEY, donor_name VARCHAR(120), donor_email VARCHAR(200), amount_cents BIGINT NOT NULL, purpose VARCHAR(100) NOT NULL, message VARCHAR(500), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+      const amountCents = Math.round(amount*100);
+      const row=(await db.query("INSERT INTO parish_donations(donor_name,donor_email,amount_cents,purpose,message) VALUES($1,$2,$3,$4,$5) RETURNING id", [name||null,email||null,amountCents,purpose,message||null])).rows[0];
+      const reference="DON-"+String(row.id).padStart(6,"0");
+      const settings=Object.fromEntries((await db.query("SELECT key,value FROM site_settings WHERE key LIKE 'eft_%'")).rows.map(x=>[x.key,x.value]));
+      const bank={accountName:settings.eft_account_name||"",bankName:settings.eft_bank_name||"",accountNumber:settings.eft_account_number||"",branchCode:settings.eft_branch_code||""};
+      const amountDisplay="R "+(amountCents/100).toFixed(2);
+      const adminEmail=String(process.env.ADMIN_EMAIL||"").trim();
+      if(adminEmail)try{await sendMail(adminEmail,"Donation pledge "+reference,"A parish donation has been submitted.\n\nReference: "+reference+"\nAmount: "+amountDisplay+"\nPurpose: "+purpose+"\nDonor: "+(name||"Not provided")+"\nEmail: "+(email||"Not provided")+"\nMessage: "+(message||"None")+"\n\nThis is a donation intention. EFT payment is not automatically verified.");}catch(e){console.error("Donation admin email failed:",e.message)}
+      if(email)try{await sendMail(email,"Thank you for supporting ELCSA Mavhola Parish – "+reference,"Thank you for your donation intention.\n\nReference: "+reference+"\nAmount: "+amountDisplay+"\nPurpose: "+purpose+"\n\nPlease use this reference when making EFT payment. Your donation is not confirmed as received until the parish verifies it.\n\nELCSA Mavhola Parish");}catch(e){console.error("Donation email failed:",e.message)}
+      res.status(201).json({ok:true,reference,amountDisplay,bank});
+    }catch(e){next(e)}
+  });
   router.get("/products", async (req, res, next) => {
     try {
       const rows = await db.query("SELECT id,title,description,category,price_cents,image_key,sizes,colors,stock_quantity FROM shop_products WHERE active=TRUE ORDER BY created_at DESC");
