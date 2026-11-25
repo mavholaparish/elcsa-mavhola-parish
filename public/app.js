@@ -277,13 +277,13 @@ const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPay
 loadShop();renderShopCart();
  // Dedicated section views: Shop and Youth League open independently.
  const page=new URLSearchParams(location.search).get("page");
- if(page==="shop"||page==="youth"){
-  const targetId=page==="shop"?"shop":"youth";
+ if(page==="shop"||page==="youth"||page==="donate"){
+  const targetId=page==="shop"?"shop":page==="youth"?"youth":"donate";
   document.querySelectorAll("main>section").forEach(section=>{if(section.id!==targetId)section.hidden=true;});
   const target=$("#"+targetId);
   if(target){
-   if(page==="shop")target.classList.add("shop-page");else target.classList.add("youth-page");
-   const heading=page==="shop"?target.querySelector(".section-heading"):target;
+   if(page==="shop")target.classList.add("shop-page");else if(page==="youth")target.classList.add("youth-page");else target.classList.add("donate-page");
+   const heading=page==="shop"?target.querySelector(".section-heading"):page==="donate"?target.querySelector(".donate-hero"):target;
    if(heading){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
    if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
    else document.title="Youth League | ELCSA Mavhola Parish";
@@ -292,6 +292,13 @@ loadShop();renderShopCart();
  }
 
 
+// Donation EFT request form (card payment gateway intentionally deferred).
+const donationForm=$("#donationForm");
+if(donationForm){
+ const amountInput=$("#donationAmount"),status=$("#donationStatus"),bank=$("#donationBank");
+ donationForm.querySelectorAll("[data-donation-amount]").forEach(b=>b.onclick=()=>{amountInput.value=b.dataset.donationAmount;donationForm.querySelectorAll("[data-donation-amount]").forEach(x=>x.classList.toggle("active",x===b))});
+ donationForm.onsubmit=async e=>{e.preventDefault();const btn=donationForm.querySelector("button[type=submit]");btn.disabled=true;status.textContent="Preparing donation instructions…";try{const d=await api("/api/shop/donations",{method:"POST",body:new FormData(donationForm)});status.textContent="";bank.hidden=false;bank.innerHTML='<h3>Thank you for supporting our parish ❤️</h3><p>Your donation intention has been recorded. Please use the EFT details below to complete your donation.</p><div class="donate-ref">Donation reference: '+esc(d.reference)+'</div><p><strong>Account name:</strong> '+esc(d.bank.accountName||"Please contact the parish")+'</p><p><strong>Bank:</strong> '+esc(d.bank.bankName||"Please contact the parish")+'</p><p><strong>Account number:</strong> '+esc(d.bank.accountNumber||"Please contact the parish")+'</p><p><strong>Branch code:</strong> '+esc(d.bank.branchCode||"Please contact the parish")+'</p><p><strong>Amount:</strong> '+esc(d.amountDisplay)+'</p><p><strong>Reference:</strong> '+esc(d.reference)+'</p><p>Please email or WhatsApp your proof of payment to the parish for confirmation.</p>';bank.scrollIntoView({behavior:"smooth",block:"start"});donationForm.reset();donationForm.querySelectorAll("[data-donation-amount]").forEach(x=>x.classList.remove("active"))}catch(err){status.textContent=err.message||"Could not submit donation. Please try again."}finally{btn.disabled=false}}
+}
 window.editShopProduct=async id=>{try{const d=await api("/api/shop/admin/dashboard"),p=d.products.find(x=>Number(x.id)===Number(id));if(!p)return;const title=prompt("Product name:",p.title);if(title===null)return;const price=prompt("Price in rand:",(Number(p.price_cents)/100).toFixed(2));if(price===null)return;const description=prompt("Description:",p.description||"");if(description===null)return;const category=prompt("Category:",p.category||"Merchandise");if(category===null)return;const sizes=prompt("Available sizes, separated by commas:",(p.sizes||[]).join(", "));if(sizes===null)return;const colors=prompt("Available colours, separated by commas:",(p.colors||[]).join(", "));if(colors===null)return;const stock=prompt("Stock quantity (leave blank for unlimited):",p.stock_quantity===null?"":p.stock_quantity);if(stock===null)return;await api("/api/shop/admin/products/"+id,{method:"PUT",body:JSON.stringify({title,price,description,category,sizes,colors,stock_quantity:stock})});toast("Product updated");showAdmin("shop");loadShop();}catch(e){toast(e.message);}};
 
 /* Progressive Web App installation and offline shell */
