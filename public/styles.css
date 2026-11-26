@@ -601,3 +601,17 @@ body:has(#adminModal.open) #parishChatPanel{display:none!important;pointer-event
 
 /* Parish executive directory */
 .parish-executive-section{display:none!important}.parish-executive-section.executive-page{display:block!important;min-height:100vh;background:#f6f8fb}.executive-hero{padding:38px clamp(18px,5vw,60px);background:linear-gradient(120deg,#092b67,#14508f);color:#fff}.executive-hero .eyebrow{color:#edc765}.executive-hero h1{font-size:clamp(35px,5vw,56px);margin:12px 0}.executive-hero p{max-width:640px;color:#e2ecfb;line-height:1.65}.executive-content{max-width:1180px;margin:0 auto;padding:35px 18px 65px}.executive-intro{margin-bottom:22px}.executive-intro h2{margin:0 0 7px;color:#0b2d67;font-size:26px}.executive-intro p{color:#718198;font-size:14px}.executive-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;align-items:stretch}.executive-card{display:flex;flex-direction:column;align-items:flex-start;gap:10px;background:white;border:1px solid #e0e8f2;border-radius:15px;padding:20px;box-shadow:0 6px 20px #102b5407}.executive-role{color:#1b4d87;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.09em}.executive-card h3{margin:0;color:#19375f;font-size:18px;line-height:1.45}.executive-contact{display:inline-flex;align-items:center;margin-top:auto;color:#174d8d;font-weight:700;text-decoration:none;background:#eef4fb;padding:9px 12px;border-radius:9px}.executive-contact:hover{background:#e1edf9}.executive-status{font-size:12px;color:#8795a8;background:#f2f5f8;border-radius:8px;padding:8px 10px}.executive-pastor-card{border-color:#d7e3f2;background:#fbfcfe}@media(max-width:800px){.executive-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.executive-hero{padding:28px 16px}.executive-hero h1{font-size:35px}.executive-content{padding:25px 14px 50px}.executive-grid{grid-template-columns:1fr;gap:11px}.executive-card{padding:17px;border-radius:12px}.executive-card h3{font-size:16px}}
+
+/* Parish finances page and published financial-report cards */
+.finance-reports-wrap{max-width:1100px;margin:24px auto 0;padding:28px 18px 54px;background:#fff;border-radius:16px}
+.finance-reports-heading h2{margin:8px 0;color:#092b67;font-size:clamp(24px,4vw,34px)}
+.finance-reports-heading p{color:#61738a;line-height:1.6}
+.finance-reports-list{display:grid;gap:14px;margin-top:22px}
+.finance-report-card{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid #dce6f2;border-radius:14px;padding:18px;background:#f8fbff}
+.finance-report-card h3{margin:7px 0;color:#173d74}
+.finance-report-card p{margin:6px 0;color:#607188;line-height:1.5}
+.finance-report-type{font-size:11px;font-weight:800;letter-spacing:.08em;color:#6680a2}
+.finance-reports-empty{border:1px dashed #cbd8e8;border-radius:14px;padding:25px;text-align:center;background:#f7faff}
+.finance-reports-empty h3{color:#174a83}
+.finance-reports-note{margin-top:20px;color:#6b7a8d;font-size:13px;line-height:1.5}
+@media(max-width:600px){.finance-reports-wrap{margin:15px 12px 0;padding:22px 14px}.finance-report-card{align-items:flex-start;flex-direction:column}.finance-report-card .document-download{align-self:flex-start}}
