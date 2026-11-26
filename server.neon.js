@@ -317,17 +317,28 @@ app.post("/api/admin/reset-password",passwordResetSubmitLimiter,asyncRoute(async
 
 app.post("/api/admin/logout",(req,res)=>req.session.destroy(()=>res.json({ok:true})));
 app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
-app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
- const [applications,announcements,events,media,documents,orders,settings]=await Promise.all([
+// Admin finance ledger: income and expenses recorded with a transaction date and reference.
+app.post("/api/admin/finance-records",requireAdmin,asyncRoute(async(req,res)=>{
+ const type=String(req.body.type||""),category=String(req.body.category||"").trim(),description=String(req.body.description||"").trim(),date=String(req.body.transaction_date||""),reference=String(req.body.reference||"").trim(),amount=Number(req.body.amount);
+ if(!["Income","Expense"].includes(type)||!category||!description||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!Number.isFinite(amount)||amount<=0||amount>100000000)return res.status(400).json({error:"Enter a valid type, category, description, date and positive amount."});
+ const inserted=await db.query("INSERT INTO parish_finance_records(type,category,description,amount_cents,transaction_date,reference) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[type,category,description,Math.round(amount*100),date,reference]);
+ res.status(201).json({record:inserted.rows[0]});
+}));
+app.delete("/api/admin/finance-records/:id",requireAdmin,asyncRoute(async(req,res)=>{
+ const deleted=await db.query("DELETE FROM parish_finance_records WHERE id=$1 RETURNING id");if(!deleted.rowCount)return res.status(404).json({error:"Finance record not found."});res.json({ok:true});
+}));
+\napp.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
+ const [applications,announcements,events,media,documents,orders,settings,financeRecords]=await Promise.all([
   db.query("SELECT id,full_name,email,phone,date_of_birth,occupation,congregation,address,motivation,status,admin_note,created_at,(proof_filename IS NOT NULL)::int AS has_proof,proof_original_name FROM applications ORDER BY created_at DESC"),
   db.query("SELECT * FROM announcements ORDER BY created_at DESC"),
   db.query("SELECT * FROM events ORDER BY event_date ASC"),
   db.query("SELECT * FROM media ORDER BY created_at DESC"),
   db.query("SELECT * FROM documents ORDER BY created_at DESC"),
   db.query("SELECT orders.*,events.title AS event_title,COALESCE((SELECT string_agg('MAV-T'||LPAD(t.id::text,6,'0'), ', ' ORDER BY t.id) FROM tickets t WHERE t.order_id=orders.id),'') AS ticket_numbers,'MAV-'||LPAD(orders.id::text,6,'0') AS order_reference FROM orders JOIN events ON events.id=orders.event_id ORDER BY orders.created_at DESC"),
-  settingsObject()
+  settingsObject(),
+  db.query("SELECT * FROM parish_finance_records ORDER BY transaction_date DESC,id DESC")
  ]);
- res.json({applications:applications.rows,announcements:announcements.rows,events:events.rows,media:media.rows,documents:documents.rows,orders:orders.rows,settings});
+ res.json({applications:applications.rows,announcements:announcements.rows,events:events.rows,media:media.rows,documents:documents.rows,orders:orders.rows,settings,financeRecords:financeRecords.rows});
 }));
 // Private parish member directory. All routes are admin-only and do not expose this data publicly.
 function parseCsvRows(input){
