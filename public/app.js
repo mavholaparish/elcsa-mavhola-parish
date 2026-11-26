@@ -293,7 +293,7 @@ loadShop();renderShopCart();
   }
   window.scrollTo(0,0);
  }
-  if(page==="finances"){const back=document.createElement("a");back.href="/";back.className="finance-home-back shop-back-link";back.textContent="← Back to parish home";$("#financeChoicePage .finance-choice-hero").prepend(back);}
+  if(page==="finances"){const back=document.createElement("a");back.href="/";back.className="finance-home-back shop-back-link";back.textContent="← Back to parish home";$(".donate-hero").prepend(back);}
 
 
 // Donation EFT request form (card payment gateway intentionally deferred).
