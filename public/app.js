@@ -286,7 +286,7 @@ loadShop();renderShopCart();
    const heading=page==="shop"?target.querySelector(".section-heading"):page==="donate"?target.querySelector(".donate-hero"):page==="congregations"?target.querySelector(".congregations-hero"):target;
    if(heading && !(page==="donate" && heading.querySelector(".shop-back-link"))){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
    if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
-   else if(page==="youth")document.title="Youth League | ELCSA Mavhola Parish";else document.title="Donations | ELCSA Mavhola Parish";
+   else if(page==="youth")document.title="Youth League | ELCSA Mavhola Parish";else if(page==="donate")document.title="Donations | ELCSA Mavhola Parish";else document.title="Congregations | ELCSA Mavhola Parish";
   }
   window.scrollTo(0,0);
  }
