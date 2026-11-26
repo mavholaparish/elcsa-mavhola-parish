@@ -327,7 +327,8 @@ app.post("/api/admin/finance-records",requireAdmin,asyncRoute(async(req,res)=>{
 app.delete("/api/admin/finance-records/:id",requireAdmin,asyncRoute(async(req,res)=>{
  const deleted=await db.query("DELETE FROM parish_finance_records WHERE id=$1 RETURNING id");if(!deleted.rowCount)return res.status(404).json({error:"Finance record not found."});res.json({ok:true});
 }));
-\napp.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
+
+app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
  const [applications,announcements,events,media,documents,orders,settings,financeRecords]=await Promise.all([
   db.query("SELECT id,full_name,email,phone,date_of_birth,occupation,congregation,address,motivation,status,admin_note,created_at,(proof_filename IS NOT NULL)::int AS has_proof,proof_original_name FROM applications ORDER BY created_at DESC"),
   db.query("SELECT * FROM announcements ORDER BY created_at DESC"),
