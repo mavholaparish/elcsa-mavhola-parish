@@ -320,7 +320,7 @@ app.get("/api/admin/me",requireAdmin,(req,res)=>res.json(req.session.admin));
 // Admin finance ledger: income and expenses recorded with a transaction date and reference.
 app.post("/api/admin/finance-records",requireAdmin,asyncRoute(async(req,res)=>{
  const type=String(req.body.type||""),category=String(req.body.category||"").trim(),description=String(req.body.description||"").trim(),date=String(req.body.transaction_date||""),reference=String(req.body.reference||"").trim(),amount=Number(req.body.amount);
- if(!["Income","Expense"].includes(type)||!category||!description||!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)||!Number.isFinite(amount)||amount<=0||amount>100000000)return res.status(400).json({error:"Enter a valid type, category, description, date and positive amount."});
+ if(!["Income","Expense"].includes(type)||!category||!description||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date)||!Number.isFinite(amount)||amount<=0||amount>100000000)return res.status(400).json({error:"Enter a valid type, category, description, date and positive amount."});
  const inserted=await db.query("INSERT INTO parish_finance_records(type,category,description,amount_cents,transaction_date,reference) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[type,category,description,Math.round(amount*100),date,reference]);
  res.status(201).json({record:inserted.rows[0]});
 }));
