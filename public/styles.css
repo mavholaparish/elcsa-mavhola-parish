@@ -621,3 +621,6 @@ body:has(#adminModal.open) #parishChatPanel{display:none!important;pointer-event
 
 /* Ensure route-specific hidden finance sections stay hidden despite page display overrides */
 #donate [hidden]{display:none!important;}
+
+/* Parish Finances home back link: top and clearly visible like the Shop page */
+.finance-home-back{display:inline-block!important;margin:0 0 18px!important;padding:9px 14px!important;border-radius:8px!important;background:#fff!important;color:#174a8b!important;border:1px solid #d8e2f0!important;position:relative!important;z-index:2!important;text-decoration:none!important;}
