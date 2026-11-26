@@ -277,13 +277,13 @@ const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPay
 loadShop();renderShopCart();
  // Dedicated section views: Shop and Youth League open independently.
  const page=new URLSearchParams(location.search).get("page");
- if(page==="shop"||page==="youth"||page==="donate"){
-  const targetId=page==="shop"?"shop":page==="youth"?"youth":"donate";
+ if(page==="shop"||page==="youth"||page==="donate"||page==="congregations"){
+  const targetId=page==="shop"?"shop":page==="youth"?"youth":page==="donate"?"donate":"congregations";
   document.querySelectorAll("main>section").forEach(section=>{if(section.id!==targetId)section.hidden=true;});
   const target=$("#"+targetId);
   if(target){
-   if(page==="shop")target.classList.add("shop-page");else if(page==="youth")target.classList.add("youth-page");else target.classList.add("donate-page");
-   const heading=page==="shop"?target.querySelector(".section-heading"):page==="donate"?target.querySelector(".donate-hero"):target;
+   if(page==="shop")target.classList.add("shop-page");else if(page==="youth")target.classList.add("youth-page");else if(page==="donate")target.classList.add("donate-page");else target.classList.add("congregations-page");
+   const heading=page==="shop"?target.querySelector(".section-heading"):page==="donate"?target.querySelector(".donate-hero"):page==="congregations"?target.querySelector(".congregations-hero"):target;
    if(heading && !(page==="donate" && heading.querySelector(".shop-back-link"))){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
    if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
    else if(page==="youth")document.title="Youth League | ELCSA Mavhola Parish";else document.title="Donations | ELCSA Mavhola Parish";
