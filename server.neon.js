@@ -325,7 +325,7 @@ app.post("/api/admin/finance-records",requireAdmin,asyncRoute(async(req,res)=>{
  res.status(201).json({record:inserted.rows[0]});
 }));
 app.delete("/api/admin/finance-records/:id",requireAdmin,asyncRoute(async(req,res)=>{
- const deleted=await db.query("DELETE FROM parish_finance_records WHERE id=$1 RETURNING id");if(!deleted.rowCount)return res.status(404).json({error:"Finance record not found."});res.json({ok:true});
+ const deleted=await db.query("DELETE FROM parish_finance_records WHERE id=$1 RETURNING id",[req.params.id]);if(!deleted.rowCount)return res.status(404).json({error:"Finance record not found."});res.json({ok:true});
 }));
 
 app.get("/api/admin/dashboard",requireAdmin,asyncRoute(async(req,res)=>{
