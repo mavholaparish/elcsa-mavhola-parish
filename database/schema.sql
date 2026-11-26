@@ -178,3 +178,15 @@ CREATE TABLE IF NOT EXISTS parish_email_campaign_recipients (
  error TEXT, sent_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS parish_campaign_recipient_campaign_idx ON parish_email_campaign_recipients(campaign_id);
+
+CREATE TABLE IF NOT EXISTS parish_finance_records (
+ id BIGSERIAL PRIMARY KEY,
+ type TEXT NOT NULL CHECK(type IN ('Income','Expense')),
+ category TEXT NOT NULL,
+ description TEXT NOT NULL,
+ amount_cents BIGINT NOT NULL CHECK(amount_cents>0),
+ transaction_date DATE NOT NULL,
+ reference TEXT NOT NULL DEFAULT '',
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS parish_finance_records_date_idx ON parish_finance_records(transaction_date DESC,id DESC);
