@@ -280,22 +280,23 @@ const shopParams=new URLSearchParams(location.search);if(shopParams.has("shopPay
 loadShop();renderShopCart();
  // Dedicated section views: Shop and Youth League open independently.
  const page=new URLSearchParams(location.search).get("page");
- if(page==="shop"||page==="youth"||page==="donate"||page==="congregations"||page==="executive"){
-  const targetId=page==="shop"?"shop":page==="youth"?"youth":page==="donate"?"donate":page==="congregations"?"congregations":"executive";
+ if(page==="shop"||page==="youth"||page==="donate"||page==="finances"||page==="finance-reports"||page==="congregations"||page==="executive"){
+  const targetId=page==="shop"?"shop":page==="youth"?"youth":(page==="donate"||page==="finances"||page==="finance-reports")?"donate":page==="congregations"?"congregations":"executive";
   document.querySelectorAll("main>section").forEach(section=>{if(section.id!==targetId)section.hidden=true;});
   const target=$("#"+targetId);
   if(target){
-   if(page==="shop")target.classList.add("shop-page");else if(page==="youth")target.classList.add("youth-page");else if(page==="donate")target.classList.add("donate-page");else if(page==="congregations")target.classList.add("congregations-page");else target.classList.add("executive-page");
-   const heading=page==="shop"?target.querySelector(".section-heading"):page==="donate"?target.querySelector(".donate-hero"):page==="congregations"?target.querySelector(".congregations-hero"):page==="executive"?target.querySelector(".executive-hero"):target;
-   if(heading && !(page==="donate" && heading.querySelector(".shop-back-link"))){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
+   if(page==="shop")target.classList.add("shop-page");else if(page==="youth")target.classList.add("youth-page");else if(page==="donate"||page==="finances"||page==="finance-reports")target.classList.add("donate-page");else if(page==="congregations")target.classList.add("congregations-page");else target.classList.add("executive-page");
+   const heading=page==="shop"?target.querySelector(".section-heading"):(page==="donate"||page==="finances"||page==="finance-reports")?target.querySelector(".donate-hero"):page==="congregations"?target.querySelector(".congregations-hero"):page==="executive"?target.querySelector(".executive-hero"):target;
+   if(heading && !((page==="donate"||page==="finances"||page==="finance-reports") && heading.querySelector(".shop-back-link"))){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";heading.prepend(back);}
    if(page==="shop"){const title=target.querySelector("h2");if(title)title.textContent="Shop ELCSA Mavhola Parish";document.title="Parish Shop | ELCSA Mavhola Parish";}
-   else if(page==="youth")document.title="Youth League | ELCSA Mavhola Parish";else if(page==="donate")document.title="Parish Finances | ELCSA Mavhola Parish";else if(page==="congregations")document.title="Congregations | ELCSA Mavhola Parish";else document.title="Parish Executive | ELCSA Mavhola Parish";
+   else if(page==="youth")document.title="Youth League | ELCSA Mavhola Parish";else if(page==="donate")document.title="Donations | ELCSA Mavhola Parish";else if(page==="finances")document.title="Parish Finances | ELCSA Mavhola Parish";else if(page==="finance-reports")document.title="Financial Reports | ELCSA Mavhola Parish";else if(page==="congregations")document.title="Congregations | ELCSA Mavhola Parish";else document.title="Parish Executive | ELCSA Mavhola Parish";
   }
   window.scrollTo(0,0);
  }
 
 
 // Donation EFT request form (card payment gateway intentionally deferred).
+const financeChoice=$("#financeChoicePage"),donateWrap=$(".donate-wrap"),reportsWrap=$(".finance-reports-wrap");if(financeChoice){financeChoice.hidden=page!=="finances";donateWrap.hidden=page==="finances"||page==="finance-reports";reportsWrap.hidden=page==="finances"||page==="donate";if(page==="finances"){const back=document.createElement("a");back.href="/";back.className="shop-back-link";back.textContent="← Back to parish home";financeChoice.querySelector(".finance-choice-hero").prepend(back);}}
 const donationForm=$("#donationForm");
 if(donationForm){
  const amountInput=$("#donationAmount"),status=$("#donationStatus"),bank=$("#donationBank");
